@@ -116,6 +116,45 @@ from app.schemas.technology_intelligence import (
     WhitespaceDiscoveryResponse,
     TechnologyIntelligenceSummary,
 )
+from app.schemas.innovation_scoring import (
+    PillarScoreItem,
+    TRLEstimationItem,
+    InnovationScoreResponse,
+    DomainInnovationItem,
+    InnovationScoringSummary,
+)
+from app.schemas.commercialization import (
+    CommercializationRecommendationItem,
+    CommercializationReadinessItem,
+    CommercializationResponse,
+    DomainCommercializationItem,
+    CommercializationSummary,
+)
+from app.schemas.executive_report import (
+    RoadmapActionItem,
+    RoadmapPhaseItem,
+    StrategicAssessment,
+    ExecutiveDossierResponse,
+    DomainBenchmarkItem,
+    ExecutiveDossierSummary,
+)
+from app.schemas.admin import (
+    AdminUserItem,
+    AdminUserListResponse,
+    UserRoleUpdateRequest,
+    UserStatusUpdateRequest,
+    PipelineTelemetryItem,
+    PipelineTelemetryResponse,
+    SystemOverviewResponse,
+    AuditLogItem,
+    AuditLogListResponse,
+)
+from app.schemas.command_center import (
+    ActivityFeedItem,
+    RoleContextualMetrics,
+    CommandCenterOverviewResponse,
+    ActivityFeedResponse,
+)
 from app.schemas.common import ApiResponse, ErrorResponse, ErrorDetail
 
 __all__ = [
@@ -219,6 +258,35 @@ __all__ = [
     "WhitespaceCandidateItem",
     "WhitespaceDiscoveryResponse",
     "TechnologyIntelligenceSummary",
+    "PillarScoreItem",
+    "TRLEstimationItem",
+    "InnovationScoreResponse",
+    "DomainInnovationItem",
+    "InnovationScoringSummary",
+    "CommercializationRecommendationItem",
+    "CommercializationReadinessItem",
+    "CommercializationResponse",
+    "DomainCommercializationItem",
+    "CommercializationSummary",
+    "RoadmapActionItem",
+    "RoadmapPhaseItem",
+    "StrategicAssessment",
+    "ExecutiveDossierResponse",
+    "DomainBenchmarkItem",
+    "ExecutiveDossierSummary",
+    "AdminUserItem",
+    "AdminUserListResponse",
+    "UserRoleUpdateRequest",
+    "UserStatusUpdateRequest",
+    "PipelineTelemetryItem",
+    "PipelineTelemetryResponse",
+    "SystemOverviewResponse",
+    "AuditLogItem",
+    "AuditLogListResponse",
+    "ActivityFeedItem",
+    "RoleContextualMetrics",
+    "CommandCenterOverviewResponse",
+    "ActivityFeedResponse",
     "ApiResponse",
     "ErrorResponse",
     "ErrorDetail"
