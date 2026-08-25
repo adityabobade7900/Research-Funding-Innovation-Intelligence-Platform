@@ -82,36 +82,40 @@ function RegisterForm() {
   };
 
   return (
-    <div className="max-w-lg w-full space-y-8 glass-panel p-8 rounded-2xl border border-slate-800 shadow-2xl">
+    <div className="max-w-3xl w-full space-y-6 sm:space-y-8 glass-panel p-6 sm:p-10 rounded-2xl border border-slate-800 shadow-2xl">
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-glow mb-2">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-glow mb-1">
           <Sparkles className="w-6 h-6 text-white" />
         </div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
           Create an Account
         </h2>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
           Select your platform role to configure your personalized intelligence workspace
         </p>
       </div>
 
       {errorMessage && (
-        <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs sm:text-sm flex items-center gap-2.5">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      <form onSubmit={handleRegister} className="space-y-4">
-        <Input
-          label="Full Name *"
-          placeholder="Dr. Jane Doe"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          required
-        />
+      <form onSubmit={handleRegister} className="space-y-5">
+        {/* Row 1: Full Name (Full Width) */}
+        <div>
+          <Input
+            label="Full Name *"
+            placeholder="Dr. Jane Doe"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+          />
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Row 2: Email Address & Phone Number (2 columns on sm+) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Email Address *"
             type="email"
@@ -131,46 +135,50 @@ function RegisterForm() {
           />
         </div>
 
-        <Input
-          label="Password *"
-          type="password"
-          placeholder="Minimum 8 characters"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+        {/* Row 3: Password & Organization / Institution (2 columns on sm+) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Password *"
+            type="password"
+            placeholder="Minimum 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Organization / Institution"
             placeholder="MIT / DeepTech Inc."
             value={institution}
             onChange={(e) => setInstitution(e.target.value)}
           />
+        </div>
 
+        {/* Row 4: Designation / Role Title & Country (2 columns on sm+) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Designation / Role Title"
             placeholder="Associate Professor / CTO"
             value={designation}
             onChange={(e) => setDesignation(e.target.value)}
           />
+
+          <Input
+            label="Country"
+            placeholder="United States"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+          />
         </div>
 
-        <Input
-          label="Country"
-          placeholder="United States"
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-        />
-
-        {/* Role Selector */}
-        <div className="space-y-1.5 pt-1">
-          <label className="block text-xs font-medium text-slate-300">
+        {/* Role Selector: 3 columns horizontally on md+, stacked on mobile */}
+        <div className="space-y-2 pt-2">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
             Select Primary Role
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {roles.map((r) => {
               const isSelected = role === r.value;
               return (
@@ -178,37 +186,38 @@ function RegisterForm() {
                   type="button"
                   key={r.value}
                   onClick={() => setRole(r.value as UserRole)}
-                  className={`p-3 rounded-xl border text-left transition-all relative ${
+                  className={`p-3.5 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
                     isSelected
-                      ? "bg-blue-600/10 border-blue-500/50 shadow-sm"
-                      : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                      ? "bg-blue-600/10 border-blue-500/50 shadow-sm ring-1 ring-blue-500/20"
+                      : "bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between w-full">
                     <span className={`text-xs font-semibold ${isSelected ? "text-blue-400" : "text-slate-200"}`}>
                       {r.label}
                     </span>
-                    {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
+                    {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" />}
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">{r.desc}</p>
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">{r.desc}</p>
                 </button>
               );
             })}
           </div>
         </div>
 
+        {/* Submit Button */}
         <Button
           type="submit"
-          className="w-full py-2.5 mt-4"
+          className="w-full py-3 mt-4 text-sm font-semibold shadow-lg shadow-blue-600/20"
           isLoading={isLoading}
         >
           Complete Registration
         </Button>
       </form>
 
-      <div className="text-center text-xs text-slate-400 pt-4 border-t border-slate-800/80">
+      <div className="text-center text-xs sm:text-sm text-slate-400 pt-4 border-t border-slate-800/80">
         Already have an account?{" "}
-        <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium">
+        <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
           Sign in
         </Link>
       </div>
@@ -218,7 +227,7 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 sm:py-12">
       <Suspense fallback={<div className="text-slate-400 text-sm">Loading registration...</div>}>
         <RegisterForm />
       </Suspense>
