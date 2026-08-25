@@ -1,0 +1,101 @@
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field
+
+
+class TechnologyActivityItem(BaseModel):
+    technology_area: str = Field(..., description="Technology area or classified field name")
+    technology_domain: str = Field(..., description="Broader technology domain")
+    classification_code: Optional[str] = Field(None, description="Primary IPC/CPC classification code if available")
+    patent_count: int = Field(..., description="Total patents indexed in this technology area")
+    recent_patent_count: int = Field(0, description="Filings within the last 24-month window")
+    filing_count: int = Field(..., description="Total recorded filings")
+    grant_count: int = Field(0, description="Total granted patents")
+    citation_count: int = Field(0, description="Cumulative citations received")
+    average_citations: float = Field(0.0, description="Average citations per patent")
+    assignee_count: int = Field(0, description="Distinct assignees/applicants operating in this area")
+    jurisdictions: List[str] = Field(default_factory=list, description="List of active jurisdiction authority codes")
+    activity_level: str = Field(..., description="Activity classification: HIGH_ACTIVITY, MEDIUM_ACTIVITY, LOW_ACTIVITY")
+
+
+class TechnologyActivityResponse(BaseModel):
+    items: List[TechnologyActivityItem]
+    total_patents: int
+    total_technology_areas: int
+    summary_by_level: Dict[str, int] = Field(default_factory=dict)
+    timeframe_analyzed: Dict[str, Optional[int]] = Field(default_factory=dict)
+
+
+class TechnologyGrowthItem(BaseModel):
+    technology_area: str
+    technology_domain: str
+    recent_period_filings: int = Field(..., description="Filings in recent window (last 2 years)")
+    historical_period_filings: int = Field(..., description="Filings in baseline historical window")
+    growth_rate_pct: Optional[float] = Field(None, description="Percentage growth rate between periods; None if historical base is zero")
+    velocity_score: float = Field(..., description="Recent activity velocity score (0 to 100)")
+    growth_trajectory: str = Field(..., description="Trajectory: RAPID_ACCELERATION, STEADY_GROWTH, MATURE_STABLE, DECLINING, EMERGING_SPARSE")
+
+
+class TechnologyGrowthResponse(BaseModel):
+    items: List[TechnologyGrowthItem]
+    total_growing_areas: int
+    summary_by_trajectory: Dict[str, int] = Field(default_factory=dict)
+    timeframe_analyzed: Dict[str, Optional[int]] = Field(default_factory=dict)
+
+
+class TechnologyCoverageItem(BaseModel):
+    technology_area: str
+    technology_domain: str
+    patent_count: int
+    assignee_count: int
+    jurisdiction_count: int
+    classification_count: int
+    coverage_density_score: float = Field(..., description="Multi-signal coverage density score (0 to 100)")
+    coverage_level: str = Field(..., description="Coverage level: HIGH_COVERAGE, MODERATE_COVERAGE, SPARSE_COVERAGE")
+
+
+class TechnologyCoverageResponse(BaseModel):
+    items: List[TechnologyCoverageItem]
+    total_areas: int
+    summary_by_level: Dict[str, int] = Field(default_factory=dict)
+
+
+class WhitespaceCandidateItem(BaseModel):
+    technology_area: str = Field(..., description="Candidate technology area name")
+    technology_domain: str = Field(..., description="Broader domain context")
+    classification_code: Optional[str] = Field(None, description="Primary IPC/CPC classification code")
+    whitespace_type: str = Field(..., description="Classification: POTENTIAL_WHITESPACE, ACTIVITY_GAP, LOW_COVERAGE_AREA, UNDERREPRESENTED_NICHE")
+    whitespace_score: float = Field(..., description="Deterministic gap score (0 to 100; higher score indicates larger activity gap)")
+    activity_gap_score: float = Field(..., description="Gap component based on patent volume relative to domain benchmark (0-100)")
+    assignee_gap_score: float = Field(..., description="Gap component based on low applicant density/diversity (0-100)")
+    growth_gap_score: float = Field(..., description="Gap component based on lack of recent filing activity (0-100)")
+    coverage_gap_score: float = Field(..., description="Gap component based on geographic and classification sparseness (0-100)")
+    confidence: str = Field(..., description="Statistical confidence: HIGH, MEDIUM, LOW")
+    evidence: List[str] = Field(..., description="Explainable factual evidence supporting whitespace identification")
+    adjacent_technology_areas: List[str] = Field(default_factory=list, description="Related or neighboring active technology areas for context")
+    methodology_disclaimer: str = Field(
+        default="Potential Whitespace Indicator based on patent metadata distribution and activity gaps. Does not constitute an assessment of freedom-to-operate, patentability, or commercial viability."
+    )
+
+
+class WhitespaceDiscoveryResponse(BaseModel):
+    candidates: List[WhitespaceCandidateItem]
+    total_candidates: int
+    domain_filter: Optional[str] = None
+    threshold_used: float
+    methodology_disclaimer: str = Field(
+        default="Potential Whitespace Indicator based on patent metadata distribution and activity gaps. Does not constitute an assessment of freedom-to-operate, patentability, or commercial viability."
+    )
+
+
+class TechnologyIntelligenceSummary(BaseModel):
+    total_patents: int
+    total_technology_areas: int
+    active_areas_count: int
+    growing_areas_count: int
+    potential_whitespaces_count: int
+    top_active_areas: List[TechnologyActivityItem] = Field(default_factory=list)
+    top_growing_areas: List[TechnologyGrowthItem] = Field(default_factory=list)
+    top_whitespace_candidates: List[WhitespaceCandidateItem] = Field(default_factory=list)
+    methodology_disclaimer: str = Field(
+        default="Technology Intelligence metrics and Whitespace indicators are structured metadata aggregations. They do not constitute legal opinions, patentability assessments, or guaranteed commercial opportunity predictions."
+    )
