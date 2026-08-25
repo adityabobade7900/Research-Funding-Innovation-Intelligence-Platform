@@ -27,6 +27,8 @@ export default function PatentsPage() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showIngestModal, setShowIngestModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPatentId, setEditingPatentId] = useState<number | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -44,6 +46,17 @@ export default function PatentsPage() {
     technology_domain: '',
     citation_count: 0,
     source: 'manual',
+    url: ''
+  });
+
+  const [editForm, setEditForm] = useState<Partial<PatentCreatePayload>>({
+    title: '',
+    abstract: '',
+    assignee: '',
+    inventors: '',
+    patent_classification: '',
+    technology_domain: '',
+    citation_count: 0,
     url: ''
   });
 
@@ -150,6 +163,41 @@ export default function PatentsPage() {
       fetchPatents();
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail?.message || 'Failed to ingest patent');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleOpenEdit = (p: Patent) => {
+    setEditingPatentId(p.id);
+    setEditForm({
+      title: p.title,
+      abstract: p.abstract || '',
+      assignee: p.assignee || '',
+      inventors: p.inventors || '',
+      patent_classification: p.patent_classification || '',
+      technology_domain: p.technology_domain || '',
+      citation_count: p.citation_count || 0,
+      url: p.url || ''
+    });
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPatentId) return;
+    setModalLoading(true);
+    setErrorMsg(null);
+    try {
+      await api.put(`/patents/${editingPatentId}`, editForm);
+      setSuccessMsg('Patent updated successfully!');
+      setShowEditModal(false);
+      setEditingPatentId(null);
+      fetchPatents();
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.detail?.message || 'Failed to update patent');
     } finally {
       setModalLoading(false);
     }
@@ -563,6 +611,15 @@ export default function PatentsPage() {
                         </a>
                       )}
                       <button
+                        onClick={() => handleOpenEdit(p)}
+                        className="p-1 text-slate-500 hover:text-indigo-400 transition"
+                        title="Edit patent"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
                         onClick={() => handleDelete(p.id)}
                         className="p-1 text-slate-500 hover:text-rose-400 transition"
                         title="Remove patent"
@@ -630,6 +687,114 @@ export default function PatentsPage() {
                   className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-medium transition disabled:opacity-50"
                 >
                   {modalLoading ? 'Ingesting...' : 'Ingest & Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Patent Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-white">Edit Patent</h2>
+
+            <form onSubmit={handleEditSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Patent Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Patent title..."
+                  value={editForm.title || ''}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Assignee / Organization</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. MIT, IBM"
+                    value={editForm.assignee || ''}
+                    onChange={(e) => setEditForm({ ...editForm, assignee: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Classification (IPC/CPC)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. G06N10/00"
+                    value={editForm.patent_classification || ''}
+                    onChange={(e) => setEditForm({ ...editForm, patent_classification: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Technology Domain</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Quantum Technologies"
+                    value={editForm.technology_domain || ''}
+                    onChange={(e) => setEditForm({ ...editForm, technology_domain: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Citations</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editForm.citation_count ?? 0}
+                    onChange={(e) => setEditForm({ ...editForm, citation_count: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Inventors</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dr. Jane Smith, Dr. Alan Doe"
+                  value={editForm.inventors || ''}
+                  onChange={(e) => setEditForm({ ...editForm, inventors: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Abstract / Summary</label>
+                <textarea
+                  rows={3}
+                  placeholder="Detailed description of patent disclosure..."
+                  value={editForm.abstract || ''}
+                  onChange={(e) => setEditForm({ ...editForm, abstract: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-xl text-xs font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={modalLoading}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium transition disabled:opacity-50"
+                >
+                  {modalLoading ? 'Updating...' : 'Update Patent'}
                 </button>
               </div>
             </form>
