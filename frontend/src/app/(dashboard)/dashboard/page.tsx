@@ -31,7 +31,7 @@ export default function DashboardPage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await api.get<{ data: CommandCenterOverviewResponse }>('/api/v1/command-center/overview');
+      const res = await api.get<{ data: CommandCenterOverviewResponse }>('/command-center/overview');
       setCommandData(res.data.data);
     } catch (err: any) {
       console.error('Failed to load command center overview:', err);

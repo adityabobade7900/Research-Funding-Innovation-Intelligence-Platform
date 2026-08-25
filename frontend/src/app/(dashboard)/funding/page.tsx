@@ -78,7 +78,7 @@ export default function FundingPage() {
       if (selectedType) params.opportunity_type = selectedType;
       if (selectedStatus) params.status = selectedStatus;
 
-      const res = await api.get<{ data: FundingOpportunityListResponse }>('/api/v1/funding', { params });
+      const res = await api.get<{ data: FundingOpportunityListResponse }>('/funding', { params });
       setOpportunities(res.data.data.items || []);
       setTotal(res.data.data.total || 0);
     } catch (err: any) {
@@ -100,7 +100,7 @@ export default function FundingPage() {
       if (recDomain) params.domain = recDomain;
       if (recType) params.opportunity_type = recType;
 
-      const res = await api.get<{ data: FundingRecommendationResponse }>('/api/v1/funding/recommendations', { params });
+      const res = await api.get<{ data: FundingRecommendationResponse }>('/funding/recommendations', { params });
       setRecommendations(res.data.data.items || []);
       setRecTotal(res.data.data.total_recommended || 0);
       setRecProfileSummary(res.data.data.profile_summary || null);
@@ -128,7 +128,7 @@ export default function FundingPage() {
     setEligibilityLoading(true);
     setEligibilityError(null);
     try {
-      const res = await api.get<{ data: EligibilityEvaluationResult }>(`/api/v1/funding/${opp.id}/eligibility`);
+      const res = await api.get<{ data: EligibilityEvaluationResult }>(`/funding/${opp.id}/eligibility`);
       setEligibilityResult(res.data.data);
     } catch (err: any) {
       setEligibilityError(err.response?.data?.detail?.message || 'Failed to evaluate eligibility');
@@ -147,7 +147,7 @@ export default function FundingPage() {
         funding_amount: createForm.funding_amount ? Number(createForm.funding_amount) : undefined,
         application_deadline: createForm.application_deadline ? new Date(createForm.application_deadline).toISOString() : undefined,
       };
-      await api.post('/api/v1/funding', payload);
+      await api.post('/funding', payload);
       setSuccessMsg('Funding opportunity indexed successfully!');
       setShowCreateModal(false);
       setCreateForm({

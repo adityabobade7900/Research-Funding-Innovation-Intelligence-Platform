@@ -8,6 +8,7 @@ from app.schemas.profile import ProfileRead, ProfileUpdate
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str = Field(..., min_length=2, max_length=255)
+    phone: Optional[str] = Field(None, max_length=50)
     role: UserRole = UserRole.RESEARCHER
 
 
@@ -15,10 +16,13 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=128)
     institution: Optional[str] = Field(None, max_length=255)
     department: Optional[str] = Field(None, max_length=255)
+    designation: Optional[str] = Field(None, max_length=255)
+    country: Optional[str] = Field(None, max_length=100)
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=2, max_length=255)
+    phone: Optional[str] = Field(None, max_length=50)
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
     password: Optional[str] = Field(None, min_length=8, max_length=128)
@@ -38,7 +42,7 @@ class UserRead(UserBase):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1)
 
 
 class RefreshTokenRequest(BaseModel):

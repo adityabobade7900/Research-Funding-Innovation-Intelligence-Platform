@@ -31,8 +31,8 @@ export default function CommercializationPage() {
       const queryStr = params.toString() ? `?${params.toString()}` : '';
 
       const [commRes, sumRes] = await Promise.all([
-        api.get<{ data: CommercializationResponse }>(`/api/v1/commercialization/recommendations${queryStr}`),
-        api.get<{ data: CommercializationSummary }>('/api/v1/commercialization/summary'),
+        api.get<{ data: CommercializationResponse }>(`/commercialization/recommendations${queryStr}`),
+        api.get<{ data: CommercializationSummary }>('/commercialization/summary'),
       ]);
 
       setCommData(commRes.data.data);

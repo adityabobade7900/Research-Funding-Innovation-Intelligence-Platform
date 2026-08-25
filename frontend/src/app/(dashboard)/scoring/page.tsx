@@ -31,8 +31,8 @@ export default function InnovationScoringPage() {
       const scoreQuery = params.toString() ? `?${params.toString()}` : '';
 
       const [scoreRes, sumRes] = await Promise.all([
-        api.get<{ data: InnovationScoreResponse }>(`/api/v1/innovation-scoring/score${scoreQuery}`),
-        api.get<{ data: InnovationScoringSummary }>('/api/v1/innovation-scoring/summary'),
+        api.get<{ data: InnovationScoreResponse }>(`/innovation-scoring/score${scoreQuery}`),
+        api.get<{ data: InnovationScoringSummary }>('/innovation-scoring/summary'),
       ]);
 
       setScoreData(scoreRes.data.data);

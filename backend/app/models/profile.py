@@ -20,6 +20,8 @@ class Profile(Base):
     
     institution: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     department: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    designation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     orcid_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

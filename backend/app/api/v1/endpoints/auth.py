@@ -83,6 +83,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
         email=user_in.email.lower(),
         hashed_password=get_password_hash(user_in.password),
         full_name=user_in.full_name,
+        phone=user_in.phone,
         role=user_in.role,
         is_active=True,
         is_superuser=False
@@ -94,7 +95,9 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     new_profile = Profile(
         user_id=new_user.id,
         institution=user_in.institution,
-        department=user_in.department
+        department=user_in.department,
+        designation=user_in.designation,
+        country=user_in.country
     )
     db.add(new_profile)
     await db.flush()
@@ -305,6 +308,8 @@ async def update_current_user_profile(
 
     if user_update.full_name is not None:
         user.full_name = user_update.full_name
+    if user_update.phone is not None:
+        user.phone = user_update.phone
     if user_update.role is not None:
         user.role = user_update.role
     if user_update.password is not None:
@@ -321,6 +326,10 @@ async def update_current_user_profile(
             user.profile.institution = prof_data.institution
         if prof_data.department is not None:
             user.profile.department = prof_data.department
+        if prof_data.designation is not None:
+            user.profile.designation = prof_data.designation
+        if prof_data.country is not None:
+            user.profile.country = prof_data.country
         if prof_data.bio is not None:
             user.profile.bio = prof_data.bio
         if prof_data.orcid_id is not None:

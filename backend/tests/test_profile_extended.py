@@ -179,3 +179,55 @@ async def test_unauthenticated_profile_access_denied(client: AsyncClient):
 
     put_resp = await client.put("/api/v1/profile/me", json={"institution": "Unauthorized University"})
     assert put_resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_update_profile_with_designation_and_country(client: AsyncClient, test_user: dict):
+    """Verifies updating extended profile with designation and country fields."""
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": test_user["email"], "password": test_user["password"]}
+    )
+    token = login_resp.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    payload = {
+        "institution": "Oxford University",
+        "department": "Department of Computer Science",
+        "designation": "Professor of Artificial Intelligence",
+        "country": "United Kingdom",
+        "bio": "Leading neural symbolic integration lab."
+    }
+    update_resp = await client.put("/api/v1/profile/me", json=payload, headers=headers)
+    assert update_resp.status_code == 200
+    data = update_resp.json()["data"]
+    assert data["designation"] == "Professor of Artificial Intelligence"
+    assert data["country"] == "United Kingdom"
+    assert data["institution"] == "Oxford University"
+
+
+@pytest.mark.asyncio
+async def test_academic_history_invalid_year_validation(client: AsyncClient, test_user: dict):
+    """Verifies that invalid academic history years (out of bounds) are rejected by schema."""
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": test_user["email"], "password": test_user["password"]}
+    )
+    token = login_resp.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Out of range year (< 1900 or > 2100)
+    payload = {
+        "academic_histories": [
+            {
+                "degree": "Ph.D.",
+                "field_of_study": "Physics",
+                "institution": "MIT",
+                "start_year": 1800,
+                "end_year": 2020
+            }
+        ]
+    }
+    resp = await client.put("/api/v1/profile/me", json=payload, headers=headers)
+    assert resp.status_code == 422
+

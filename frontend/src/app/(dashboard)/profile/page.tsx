@@ -40,6 +40,9 @@ export default function ProfilePage() {
   // Form State
   const [institution, setInstitution] = useState("");
   const [department, setDepartment] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [country, setCountry] = useState("");
+  const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [orcidId, setOrcidId] = useState("");
   const [website, setWebsite] = useState("");
@@ -59,7 +62,11 @@ export default function ProfilePage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    setUser(authStorage.getUser());
+    const currentUser = authStorage.getUser();
+    setUser(currentUser);
+    if (currentUser?.phone) {
+      setPhone(currentUser.phone);
+    }
 
     // Load available taxonomy domains and profile data concurrently
     Promise.all([
@@ -75,6 +82,8 @@ export default function ProfilePage() {
           setProfile(prof);
           setInstitution(prof.institution || "");
           setDepartment(prof.department || "");
+          setDesignation(prof.designation || "");
+          setCountry(prof.country || "");
           setBio(prof.bio || "");
           setOrcidId(prof.orcid_id || "");
           setWebsite(prof.website || "");
@@ -183,6 +192,8 @@ export default function ProfilePage() {
     const payload = {
       institution,
       department,
+      designation,
+      country,
       bio,
       orcid_id: orcidId,
       website,
@@ -195,9 +206,17 @@ export default function ProfilePage() {
     };
 
     try {
-      const res = await api.put("/profile/me", payload);
+      const [res, userRes] = await Promise.all([
+        api.put("/profile/me", payload),
+        api.put("/auth/me", { phone })
+      ]);
       if (res.data?.success) {
         setProfile(res.data.data);
+        if (userRes.data?.success) {
+          const updatedUser = userRes.data.data;
+          setUser(updatedUser);
+          authStorage.setUser(updatedUser);
+        }
         setSuccessMessage("Research profile updated successfully!");
         setTimeout(() => setSuccessMessage(""), 4000);
       }
@@ -306,17 +325,38 @@ export default function ProfilePage() {
               onChange={(e) => setDepartment(e.target.value)}
             />
             <Input
+              label="Designation / Role Title"
+              placeholder="e.g. Associate Professor, Principal Investigator"
+              value={designation}
+              onChange={(e) => setDesignation(e.target.value)}
+            />
+            <Input
+              label="Country / Region"
+              placeholder="e.g. United States, Germany, Japan"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+            />
+            <Input
+              label="Contact Phone Number"
+              type="tel"
+              placeholder="e.g. +1 (555) 000-0000"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <Input
               label="ORCID Identifier"
               placeholder="e.g. 0000-0002-1825-0097"
               value={orcidId}
               onChange={(e) => setOrcidId(e.target.value)}
             />
-            <Input
-              label="Academic / Lab Website"
-              placeholder="https://lab.university.edu"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-            />
+            <div className="md:col-span-2">
+              <Input
+                label="Academic / Lab Website"
+                placeholder="https://lab.university.edu"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-1.5 pt-2">
             <label className="block text-xs font-medium text-slate-300">

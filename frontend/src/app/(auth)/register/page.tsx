@@ -18,6 +18,10 @@ function RegisterForm() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [country, setCountry] = useState("");
   const [role, setRole] = useState<UserRole>(initialRole);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -46,6 +50,10 @@ function RegisterForm() {
         full_name: fullName,
         email,
         password,
+        phone: phone || undefined,
+        institution: institution || undefined,
+        designation: designation || undefined,
+        country: country || undefined,
         role,
       });
 
@@ -96,25 +104,35 @@ function RegisterForm() {
 
       <form onSubmit={handleRegister} className="space-y-4">
         <Input
-          label="Full Name"
+          label="Full Name *"
           placeholder="Dr. Jane Doe"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
         />
 
-        <Input
-          label="Email Address"
-          type="email"
-          placeholder="jane.doe@university.edu"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label="Email Address *"
+            type="email"
+            placeholder="jane.doe@university.edu"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+
+          <Input
+            label="Phone Number"
+            type="tel"
+            placeholder="+1 (555) 000-0000"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </div>
 
         <Input
-          label="Password"
+          label="Password *"
           type="password"
           placeholder="Minimum 8 characters"
           value={password}
@@ -122,6 +140,29 @@ function RegisterForm() {
           required
           minLength={8}
           autoComplete="new-password"
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label="Organization / Institution"
+            placeholder="MIT / DeepTech Inc."
+            value={institution}
+            onChange={(e) => setInstitution(e.target.value)}
+          />
+
+          <Input
+            label="Designation / Role Title"
+            placeholder="Associate Professor / CTO"
+            value={designation}
+            onChange={(e) => setDesignation(e.target.value)}
+          />
+        </div>
+
+        <Input
+          label="Country"
+          placeholder="United States"
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
         />
 
         {/* Role Selector */}

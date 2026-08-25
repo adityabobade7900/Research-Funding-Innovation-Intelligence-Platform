@@ -51,6 +51,8 @@ export interface ExtendedProfile {
   user_id: number;
   institution?: string;
   department?: string;
+  designation?: string;
+  country?: string;
   bio?: string;
   orcid_id?: string;
   website?: string;
@@ -67,6 +69,8 @@ export interface ExtendedProfile {
 export interface ExtendedProfileUpdate {
   institution?: string;
   department?: string;
+  designation?: string;
+  country?: string;
   bio?: string;
   orcid_id?: string;
   website?: string;

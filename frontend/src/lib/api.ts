@@ -11,11 +11,19 @@ export const api = axios.create({
   },
 });
 
-// Attach Authorization Bearer token to outgoing requests
+// Attach Authorization Bearer token to outgoing requests and normalize paths
 api.interceptors.request.use((config) => {
   const token = authStorage.getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Prevent duplicate /api/v1 prefix when baseURL already includes /api/v1
+  if (config.url) {
+    if (config.url.startsWith("/api/v1/")) {
+      config.url = config.url.substring(7);
+    } else if (config.url === "/api/v1") {
+      config.url = "/";
+    }
   }
   return config;
 });

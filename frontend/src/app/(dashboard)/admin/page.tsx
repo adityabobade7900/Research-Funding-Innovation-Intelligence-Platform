@@ -38,7 +38,7 @@ export default function AdminPage() {
       if (searchQuery) params.q = searchQuery;
       if (selectedRole) params.role = selectedRole;
 
-      const res = await api.get<{ data: AdminUserListResponse }>('/api/v1/admin/users', { params });
+      const res = await api.get<{ data: AdminUserListResponse }>('/admin/users', { params });
       setUsersData(res.data.data);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail?.message || 'Failed to fetch user list');
@@ -47,7 +47,7 @@ export default function AdminPage() {
 
   const fetchTelemetry = useCallback(async () => {
     try {
-      const res = await api.get<{ data: PipelineTelemetryResponse }>('/api/v1/admin/telemetry/pipelines');
+      const res = await api.get<{ data: PipelineTelemetryResponse }>('/admin/telemetry/pipelines');
       setTelemetryData(res.data.data);
     } catch (err: any) {
       console.error(err);
@@ -56,7 +56,7 @@ export default function AdminPage() {
 
   const fetchOverview = useCallback(async () => {
     try {
-      const res = await api.get<{ data: SystemOverviewResponse }>('/api/v1/admin/system/overview');
+      const res = await api.get<{ data: SystemOverviewResponse }>('/admin/system/overview');
       setOverviewData(res.data.data);
     } catch (err: any) {
       console.error(err);
@@ -67,7 +67,7 @@ export default function AdminPage() {
     try {
       const params: Record<string, string | number> = { limit: 50, offset: 0 };
       if (auditCategory) params.category = auditCategory;
-      const res = await api.get<{ data: { items: AuditLogItem[] } }>('/api/v1/admin/audit-logs', { params });
+      const res = await api.get<{ data: { items: AuditLogItem[] } }>('/admin/audit-logs', { params });
       setAuditLogs(res.data.data.items);
     } catch (err: any) {
       console.error(err);
@@ -94,7 +94,7 @@ export default function AdminPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      await api.put(`/api/v1/admin/users/${userId}/role`, { role: newRole });
+      await api.put(`/admin/users/${userId}/role`, { role: newRole });
       setSuccessMsg(`Successfully updated role to ${newRole}`);
       await fetchUsers();
       await fetchAuditLogs();
@@ -110,7 +110,7 @@ export default function AdminPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      await api.put(`/api/v1/admin/users/${userId}/status`, { is_active: !currentStatus });
+      await api.put(`/admin/users/${userId}/status`, { is_active: !currentStatus });
       setSuccessMsg(`User account ${!currentStatus ? 'activated' : 'deactivated'}`);
       await fetchUsers();
       await fetchAuditLogs();

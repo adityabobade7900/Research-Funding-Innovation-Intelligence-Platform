@@ -101,6 +101,10 @@ class ProfileService:
             profile.institution = update_in.institution
         if update_in.department is not None:
             profile.department = update_in.department
+        if update_in.designation is not None:
+            profile.designation = update_in.designation
+        if update_in.country is not None:
+            profile.country = update_in.country
         if update_in.bio is not None:
             profile.bio = update_in.bio
         if update_in.orcid_id is not None:

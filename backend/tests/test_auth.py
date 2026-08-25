@@ -137,3 +137,161 @@ async def test_logout_revocation(client: AsyncClient, test_user: dict):
     )
     assert refresh_resp.status_code == 401
     assert refresh_resp.json()["error"]["code"] == "AUTHENTICATION_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_register_with_phone_designation_country(client: AsyncClient):
+    """Verifies user registration with new optional fields (phone, designation, country)."""
+    payload = {
+        "email": "dr.curie@radium.org",
+        "full_name": "Dr. Marie Curie",
+        "password": "SecurePassword123!",
+        "phone": "+33 1 42 34 56 78",
+        "role": "researcher",
+        "institution": "University of Paris",
+        "department": "Faculty of Sciences",
+        "designation": "Director of Research",
+        "country": "France"
+    }
+    response = await client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 201
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["phone"] == "+33 1 42 34 56 78"
+    assert body["data"]["profile"]["designation"] == "Director of Research"
+    assert body["data"]["profile"]["country"] == "France"
+
+
+@pytest.mark.asyncio
+async def test_register_malformed_email(client: AsyncClient):
+    """Verifies that registration rejects malformed email addresses with 422."""
+    payload = {
+        "email": "not-a-valid-email",
+        "full_name": "Invalid User",
+        "password": "SecurePassword123!",
+        "role": "researcher"
+    }
+    response = await client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_register_weak_password(client: AsyncClient):
+    """Verifies that registration rejects passwords shorter than 8 characters."""
+    payload = {
+        "email": "weak.pass@test.com",
+        "full_name": "Weak Pass User",
+        "password": "short",
+        "role": "researcher"
+    }
+    response = await client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_register_missing_required_fields(client: AsyncClient):
+    """Verifies that registration rejects payloads missing required fields."""
+    # Missing full_name
+    r1 = await client.post("/api/v1/auth/register", json={"email": "a@b.com", "password": "Password123!"})
+    assert r1.status_code == 422
+
+    # Missing email
+    r2 = await client.post("/api/v1/auth/register", json={"full_name": "User", "password": "Password123!"})
+    assert r2.status_code == 422
+
+    # Missing password
+    r3 = await client.post("/api/v1/auth/register", json={"full_name": "User", "email": "a@b.com"})
+    assert r3.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_login_nonexistent_user(client: AsyncClient):
+    """Verifies that logging in with a non-existent email returns 401."""
+    payload = {
+        "email": "ghost.user.999@nonexistent.edu",
+        "password": "SomePassword123!"
+    }
+    response = await client.post("/api/v1/auth/login", json=payload)
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTHENTICATION_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_login_blank_credentials(client: AsyncClient):
+    """Verifies that login with empty/blank credentials fails validation with 422."""
+    response = await client.post("/api/v1/auth/login", json={"email": "a@b.com", "password": ""})
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_login_deactivated_user(client: AsyncClient):
+    """Verifies that deactivated users cannot log in (401)."""
+    from app.models.user import User, UserRole
+    from app.core.security import get_password_hash
+    from tests.conftest import TestingSessionLocal
+
+    async with TestingSessionLocal() as session:
+        deactivated = User(
+            email="inactive.user@test.edu",
+            hashed_password=get_password_hash("Password123!"),
+            full_name="Inactive User",
+            role=UserRole.RESEARCHER,
+            is_active=False,
+            is_superuser=False
+        )
+        session.add(deactivated)
+        await session.commit()
+
+    response = await client.post("/api/v1/auth/login", json={
+        "email": "inactive.user@test.edu",
+        "password": "Password123!"
+    })
+    assert response.status_code == 401
+    assert "deactivated" in response.json()["error"]["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_jwt_missing_token_access_denied(client: AsyncClient):
+    """Verifies accessing protected /auth/me without a token returns 401."""
+    response = await client.get("/api/v1/auth/me")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_jwt_malformed_token_access_denied(client: AsyncClient):
+    """Verifies accessing protected endpoint with a garbage token returns 401."""
+    headers = {"Authorization": "Bearer not.a.valid.jwt.token"}
+    response = await client.get("/api/v1/auth/me", headers=headers)
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_jwt_expired_token_access_denied(client: AsyncClient, test_user: dict):
+    """Verifies that an expired JWT is rejected with 401."""
+    from datetime import timedelta
+    from app.core.security import create_access_token
+
+    expired_token = create_access_token(
+        data={"sub": str(test_user["id"]), "role": "researcher"},
+        expires_delta=timedelta(seconds=-10)
+    )
+    headers = {"Authorization": f"Bearer {expired_token}"}
+    response = await client.get("/api/v1/auth/me", headers=headers)
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_jwt_invalid_signature_access_denied(client: AsyncClient, test_user: dict):
+    """Verifies that a JWT signed with an untrusted secret is rejected."""
+    from jose import jwt
+    from datetime import datetime, timezone, timedelta
+
+    untrusted_token = jwt.encode(
+        {"sub": str(test_user["id"]), "role": "researcher", "exp": datetime.now(timezone.utc) + timedelta(minutes=10)},
+        "wrong-secret-key-12345678901234567890",
+        algorithm="HS256"
+    )
+    headers = {"Authorization": f"Bearer {untrusted_token}"}
+    response = await client.get("/api/v1/auth/me", headers=headers)
+    assert response.status_code == 401
+

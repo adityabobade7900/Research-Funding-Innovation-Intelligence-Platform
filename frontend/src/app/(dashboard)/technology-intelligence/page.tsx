@@ -37,11 +37,11 @@ export default function TechnologyIntelligencePage() {
       const queryStr = params.toString() ? `?${params.toString()}` : '';
 
       const [sumRes, actRes, grRes, covRes, wsRes] = await Promise.all([
-        api.get<{ data: TechnologyIntelligenceSummary }>(`/api/v1/technology-intelligence/summary${queryStr}`),
-        api.get<{ data: TechnologyActivityResponse }>(`/api/v1/technology-intelligence/activity${queryStr}`),
-        api.get<{ data: TechnologyGrowthResponse }>(`/api/v1/technology-intelligence/growth${queryStr}`),
-        api.get<{ data: TechnologyCoverageResponse }>(`/api/v1/technology-intelligence/coverage${queryStr}`),
-        api.get<{ data: WhitespaceDiscoveryResponse }>(`/api/v1/technology-intelligence/whitespace${queryStr}`),
+        api.get<{ data: TechnologyIntelligenceSummary }>(`/technology-intelligence/summary${queryStr}`),
+        api.get<{ data: TechnologyActivityResponse }>(`/technology-intelligence/activity${queryStr}`),
+        api.get<{ data: TechnologyGrowthResponse }>(`/technology-intelligence/growth${queryStr}`),
+        api.get<{ data: TechnologyCoverageResponse }>(`/technology-intelligence/coverage${queryStr}`),
+        api.get<{ data: WhitespaceDiscoveryResponse }>(`/technology-intelligence/whitespace${queryStr}`),
       ]);
 
       setSummary(sumRes.data.data);

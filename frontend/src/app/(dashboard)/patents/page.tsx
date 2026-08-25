@@ -57,7 +57,7 @@ export default function PatentsPage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const endpoint = selectedTab === 'my' ? '/api/v1/patents/my' : '/api/v1/patents';
+      const endpoint = selectedTab === 'my' ? '/patents/my' : '/patents';
       const params: Record<string, string | number> = { limit: 50, offset: 0 };
       if (searchQuery) params.q = searchQuery;
       if (selectedDomain) params.domain = selectedDomain;
@@ -78,9 +78,9 @@ export default function PatentsPage() {
     setLandscapeLoading(true);
     try {
       const [sumRes, compRes, trRes] = await Promise.all([
-        api.get<{ data: PatentLandscapeSummary }>('/api/v1/patent-intelligence/landscape'),
-        api.get<{ data: CompetitiveLandscapeResponse }>('/api/v1/patent-intelligence/competitive-landscape'),
-        api.get<{ data: PatentTrendsResponse }>('/api/v1/patent-intelligence/trends'),
+        api.get<{ data: PatentLandscapeSummary }>('/patent-intelligence/landscape'),
+        api.get<{ data: CompetitiveLandscapeResponse }>('/patent-intelligence/competitive-landscape'),
+        api.get<{ data: PatentTrendsResponse }>('/patent-intelligence/trends'),
       ]);
       setLandscapeSummary(sumRes.data.data);
       setCompetitiveData(compRes.data.data);
@@ -113,7 +113,7 @@ export default function PatentsPage() {
         filing_date: createForm.filing_date ? new Date(createForm.filing_date).toISOString() : undefined,
         publication_date: createForm.publication_date ? new Date(createForm.publication_date).toISOString() : undefined,
       };
-      await api.post('/api/v1/patents', payload);
+      await api.post('/patents', payload);
       setSuccessMsg('Patent indexed successfully!');
       setShowCreateModal(false);
       setCreateForm({
@@ -143,7 +143,7 @@ export default function PatentsPage() {
     setModalLoading(true);
     setErrorMsg(null);
     try {
-      await api.post('/api/v1/patents/ingest', ingestForm);
+      await api.post('/patents/ingest', ingestForm);
       setSuccessMsg('Patent ingested and linked to your profile successfully!');
       setShowIngestModal(false);
       setIngestForm({ patent_number: '', provider: 'mock' });
@@ -158,7 +158,7 @@ export default function PatentsPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to remove this patent from your profile?')) return;
     try {
-      await api.delete(`/api/v1/patents/${id}`);
+      await api.delete(`/patents/${id}`);
       setSuccessMsg('Patent removed successfully');
       fetchPatents();
     } catch (err: any) {

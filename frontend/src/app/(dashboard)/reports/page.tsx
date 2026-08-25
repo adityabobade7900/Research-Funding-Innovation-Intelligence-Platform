@@ -30,8 +30,8 @@ export default function ExecutiveReportsPage() {
       const queryStr = params.toString() ? `?${params.toString()}` : '';
 
       const [dossierRes, sumRes] = await Promise.all([
-        api.get<{ data: ExecutiveDossierResponse }>(`/api/v1/reports/dossier${queryStr}`),
-        api.get<{ data: ExecutiveDossierSummary }>('/api/v1/reports/summary'),
+        api.get<{ data: ExecutiveDossierResponse }>(`/reports/dossier${queryStr}`),
+        api.get<{ data: ExecutiveDossierSummary }>('/reports/summary'),
       ]);
 
       setDossierData(dossierRes.data.data);
@@ -55,7 +55,7 @@ export default function ExecutiveReportsPage() {
       else if (selectedDomain) params.append('domain', selectedDomain);
       const queryStr = params.toString() ? `?${params.toString()}` : '';
 
-      const res = await api.get(`/api/v1/reports/export/markdown${queryStr}`, {
+      const res = await api.get(`/reports/export/markdown${queryStr}`, {
         responseType: 'blob',
       });
       const blob = new Blob([res.data], { type: 'text/markdown' });

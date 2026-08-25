@@ -75,6 +75,14 @@ class AcademicHistoryBase(BaseModel):
     start_year: Optional[int] = Field(None, ge=1900, le=2100)
     end_year: Optional[int] = Field(None, ge=1900, le=2100)
 
+    @classmethod
+    def validate_years(cls, values: dict) -> dict:
+        start = values.get("start_year")
+        end = values.get("end_year")
+        if start is not None and end is not None and start > end:
+            raise ValueError("start_year cannot be greater than end_year")
+        return values
+
 
 class AcademicHistoryCreate(AcademicHistoryBase):
     pass
@@ -114,6 +122,8 @@ class ExtendedProfileRead(BaseModel):
     user_id: int
     institution: Optional[str] = None
     department: Optional[str] = None
+    designation: Optional[str] = None
+    country: Optional[str] = None
     bio: Optional[str] = None
     orcid_id: Optional[str] = None
     website: Optional[str] = None
@@ -133,6 +143,8 @@ class ExtendedProfileRead(BaseModel):
 class ExtendedProfileUpdate(BaseModel):
     institution: Optional[str] = Field(None, max_length=255)
     department: Optional[str] = Field(None, max_length=255)
+    designation: Optional[str] = Field(None, max_length=255)
+    country: Optional[str] = Field(None, max_length=100)
     bio: Optional[str] = Field(None, max_length=2000)
     orcid_id: Optional[str] = Field(None, max_length=50)
     website: Optional[str] = Field(None, max_length=255)
