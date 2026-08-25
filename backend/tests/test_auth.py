@@ -295,3 +295,34 @@ async def test_jwt_invalid_signature_access_denied(client: AsyncClient, test_use
     response = await client.get("/api/v1/auth/me", headers=headers)
     assert response.status_code == 401
 
+
+@pytest.mark.asyncio
+async def test_register_public_allowed_roles(client: AsyncClient):
+    """Verifies that public registration permits researcher, startup_founder, and innovation_manager."""
+    for role in ["researcher", "startup_founder", "innovation_manager"]:
+        payload = {
+            "email": f"public.{role}@university.edu",
+            "full_name": f"User {role}",
+            "password": "SecurePassword123!",
+            "role": role,
+            "institution": "University R&D"
+        }
+        res = await client.post("/api/v1/auth/register", json=payload)
+        assert res.status_code == 201
+        assert res.json()["data"]["role"] == role
+
+
+@pytest.mark.asyncio
+async def test_register_administrator_role_forbidden(client: AsyncClient):
+    """Verifies that attempting public self-registration with role=administrator is blocked (403)."""
+    payload = {
+        "email": "hacker.admin@evil.org",
+        "full_name": "Unauthorized Admin",
+        "password": "Password123!",
+        "role": "administrator"
+    }
+    res = await client.post("/api/v1/auth/register", json=payload)
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "PERMISSION_DENIED"
+
+

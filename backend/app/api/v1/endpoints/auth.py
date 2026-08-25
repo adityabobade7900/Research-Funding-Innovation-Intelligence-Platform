@@ -73,6 +73,12 @@ async def _issue_token_pair(user: User, db: AsyncSession) -> TokenResponse:
 @router.post("/register", response_model=ApiResponse[UserRead], status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     """Registers a new user and creates their associated initial profile."""
+    # Prevent public self-registration with administrator privileges
+    if user_in.role == UserRole.ADMINISTRATOR:
+        raise PermissionDeniedException(
+            message="Public self-registration with the Administrator role is forbidden. Administrator accounts must be provisioned by a platform administrator."
+        )
+
     # Check if user already exists
     existing = await db.execute(select(User).where(User.email == user_in.email.lower()))
     if existing.scalar_one_or_none():

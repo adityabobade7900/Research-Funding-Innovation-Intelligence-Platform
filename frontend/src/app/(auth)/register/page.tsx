@@ -13,7 +13,8 @@ import { UserRole } from "@/types/user";
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialRole = (searchParams.get("role") as UserRole) || "researcher";
+  const rawRole = searchParams.get("role") as UserRole;
+  const initialRole: UserRole = (rawRole && rawRole !== "administrator") ? rawRole : "researcher";
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -28,7 +29,7 @@ function RegisterForm() {
 
   useEffect(() => {
     const roleParam = searchParams.get("role") as UserRole;
-    if (roleParam) {
+    if (roleParam && roleParam !== "administrator") {
       setRole(roleParam);
     }
   }, [searchParams]);
@@ -37,7 +38,6 @@ function RegisterForm() {
     { value: "researcher", label: "Researcher", desc: "Academic & Scientific R&D" },
     { value: "startup_founder", label: "Startup Founder", desc: "Commercial & Deep-Tech" },
     { value: "innovation_manager", label: "Innovation Manager", desc: "TTO & IP Portfolio" },
-    { value: "administrator", label: "Administrator", desc: "System & Governance" },
   ];
 
   const handleRegister = async (e: React.FormEvent) => {

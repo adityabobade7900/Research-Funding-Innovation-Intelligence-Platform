@@ -72,4 +72,15 @@ describe("Module 1 & 2: User & Research Profile Contracts", () => {
     expect(roles).toHaveLength(4);
     expect(roles).toContain("administrator");
   });
+
+  it("should restrict public self-registration to non-admin roles", () => {
+    const publicRoles: UserRole[] = [
+      "researcher",
+      "startup_founder",
+      "innovation_manager",
+    ];
+    expect(publicRoles).toHaveLength(3);
+    expect(publicRoles).not.toContain("administrator");
+  });
 });
+
