@@ -18,10 +18,14 @@ from app.services.providers.service import ResearchProviderService
 
 def test_doi_normalization():
     """Verifies that various raw DOI formats are uniformly normalized."""
-    assert normalize_doi("https://doi.org/10.1038/s41586-020-2649-2") == "10.1038/s41586-020-2649-2"
-    assert normalize_doi("http://doi.org/10.1038/S41586-020-2649-2") == "10.1038/s41586-020-2649-2"
-    assert normalize_doi("doi:10.1103/PhysRevLett.120.010501.") == "10.1103/physrevlett.120.010501"
-    assert normalize_doi(" 10.1016/j.cell.2021.05.001 ") == "10.1016/j.cell.2021.05.001"
+    assert normalize_doi(
+        "https://doi.org/10.1038/s41586-020-2649-2") == "10.1038/s41586-020-2649-2"
+    assert normalize_doi(
+        "http://doi.org/10.1038/S41586-020-2649-2") == "10.1038/s41586-020-2649-2"
+    assert normalize_doi(
+        "doi:10.1103/PhysRevLett.120.010501.") == "10.1103/physrevlett.120.010501"
+    assert normalize_doi(
+        " 10.1016/j.cell.2021.05.001 ") == "10.1016/j.cell.2021.05.001"
     assert normalize_doi(None) is None
     assert normalize_doi("") is None
 
@@ -95,7 +99,8 @@ def test_crossref_payload_normalization():
         "title": ["Quantum Advantage with Shallow Circuits"],
         "container-title": ["Physical Review Letters"],
         "author": [
-            {"given": "Sergey", "family": "Bravyi", "affiliation": [{"name": "IBM Quantum"}]},
+            {"given": "Sergey", "family": "Bravyi",
+                "affiliation": [{"name": "IBM Quantum"}]},
             {"given": "David", "family": "Gosset"}
         ],
         "published-print": {"date-parts": [[2019, 1, 4]]},
