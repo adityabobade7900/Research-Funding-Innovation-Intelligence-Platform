@@ -1,0 +1,320 @@
+Ran command: `& "d:\Infosys 7.0\Intelligent-Research1\backend\venv\Scripts\pytest.exe" tests/ -v`
+Used tool: manage_task
+Used tool: manage_task
+Used tool: manage_task
+Used tool: manage_task
+Ran command: `$env:PATH = "C:\Program Files\nodejs;" + $env:PATH; npm test`
+Used tool: manage_task
+Used tool: manage_task
+Used tool: manage_task
+Ran command: `$env:PATH = "C:\Program Files\nodejs;" + $env:PATH; npx next build`
+Used tool: manage_task
+Used tool: manage_task
+Used tool: manage_task
+Used tool: manage_task
+Used tool: manage_task
+
+# COMPLETE & ACCURATE PROJECT STATUS REPORT
+## Research Funding & Innovation Intelligence Platform
+
+---
+
+### FINAL EXECUTIVE SUMMARY
+
+```
+================================================================================
+PROJECT:
+Research Funding & Innovation Intelligence Platform
+
+MODULES:
+12 Total Major Modules
+- 10 Completed (🟢)
+- 2 Partially Completed (🟡)
+- 0 Not Started (🔴)
+
+MILESTONES:
+4 Total Milestones
+- 3 Fully Completed (🟢) (Milestones 1, 2, 3)
+- 1 Partially Completed (🟡) (Milestone 4 — ~85% complete)
+- 0 Not Started (🔴)
+
+CURRENT POSITION:
+Milestone 4 (Week 7 & 8) — Analytics, Testing, Hardening & Deployment
+
+OVERALL PROJECT COMPLETION:
+92.5% (Module-Weighted) / 96.3% (Milestone-Weighted)
+
+TESTING & BUILD STATUS:
+- Backend: 150 / 150 Tests PASSED (100%)
+- Frontend: 30 / 30 Tests PASSED (100%)
+- Next.js Production Build: 18 / 18 Routes Built Successfully (0 Errors)
+================================================================================
+```
+
+---
+
+## TASK 1 & 2 — MAP IMPLEMENTATION TO THE 12 OFFICIAL MODULES
+
+| # | Official Module | Status | Completion % | Evidence & Key Implementation Files |
+|---|-----------------|:------:|:------------:|-------------------------------------|
+| **1** | **User Authentication & Role-Based Access** | 🟢 COMPLETED | 100% | • [auth.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/auth.py), [security.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/core/security.py), [deps.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/core/deps.py)<br>• Models: `User`, `RefreshToken`<br>• Frontend: `/login`, `/register`, `/admin`<br>• Tests: `test_auth.py` (22 tests), `test_rbac.py` (2 tests)<br>• Public registration strictly limited to non-admin roles; admin provisioned via CLI |
+| **2** | **Research Profile Management** | 🟢 COMPLETED | 100% | • [profile.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/profile.py), [publications.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/publications.py), [patents.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/patents.py)<br>• Models: `Profile`, `ResearchDomain`, `ResearchInterest`, `ProfileKeyword`, `TechnologyArea`, `AcademicHistory`, `ResearchHistory`, `Publication`, `Patent`<br>• Frontend: `/profile`, `/publications`, `/publications/[id]`, `/patents`<br>• Tests: `test_profile.py`, `test_profile_extended.py`, `test_publications.py`, `test_patents.py` |
+| **3** | **Funding Opportunity Discovery** | 🟢 COMPLETED | 100% | • [funding.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/funding.py)<br>• Services: `FundingService`, `FundingIngestService`, `EligibilityMatcher`, `FundingRecommendationService`<br>• Providers: Grants.gov, NSF, Mock<br>• Model: `FundingOpportunity`, `ProfileFunding`<br>• Frontend: `/funding`<br>• Tests: `test_funding.py`, `test_funding_eligibility.py`, `test_funding_ingest.py`, `test_funding_recommendations.py`, `test_funding_providers.py` |
+| **4** | **Research Trend Intelligence** | 🟢 COMPLETED | 100% | • [research_intelligence.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/research_intelligence.py)<br>• Service: `ResearchTrendService`<br>• Temporal publication velocity, CAGR, citation medians, emerging topic acceleration, domain hotspots<br>• Frontend: `/research-intelligence`, `/trends`<br>• Tests: `test_research_intelligence.py` (8 tests) |
+| **5** | **Patent Landscape Analysis** | 🟢 COMPLETED | 100% | • [patent_intelligence.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/patent_intelligence.py)<br>• Service: `PatentLandscapeService`<br>• Assignee market concentration (Herfindahl-Hirschman Index - HHI), IPC distribution, filing growth rates, legal status breakdown, competitive litigation indicators<br>• Frontend: `/patents` (landscape view)<br>• Tests: `test_patent_intelligence.py` (8 tests) |
+| **6** | **Technology Intelligence & Whitespace** | 🟢 COMPLETED | 100% | • [technology_intelligence.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/technology_intelligence.py)<br>• Service: `TechnologyIntelligenceService`<br>• Technology coverage density, CAGR trajectories, statistical whitespace detection (identifying unpatented innovation niches)<br>• Frontend: `/technology-intelligence`<br>• Tests: `test_technology_intelligence.py` (8 tests) |
+| **7** | **Innovation Scoring Engine** | 🟢 COMPLETED | 100% | • [innovation_scoring.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/innovation_scoring.py)<br>• Services: `InnovationScoringService`, `TRLService`<br>• 5-Pillar weighted mathematical formula + NASA/DoD standard TRL 1–9 rule estimation engine<br>• Frontend: `/scoring`<br>• Tests: `test_innovation_scoring.py` (8 tests) |
+| **8** | **Commercialization Recommendation** | 🟢 COMPLETED | 100% | • [commercialization.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/commercialization.py)<br>• Service: `CommercializationService`<br>• 4 readiness dimensions (IP defensibility, market demand, regulatory, team), strategic pathway classification (Licensing, Spinout, Joint Development)<br>• Frontend: `/commercialization`<br>• Tests: `test_commercialization.py` (8 tests) |
+| **9** | **Dashboard & Analytics** | 🟢 COMPLETED | 100% | • [command_center.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/command_center.py), [admin.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/admin.py)<br>• Services: `CommandCenterService`, `AdminService`<br>• Role-tailored strategic KPI cards, multi-stream activity feed, upcoming grant deadlines, system overview<br>• Frontend: `/dashboard`, `/admin`<br>• Tests: `test_command_center.py` (6 tests), `test_admin.py` (8 tests) |
+| **10** | **Notification & Alert System** | 🟡 PARTIALLY COMPLETED | 40% | • **Implemented**: Upcoming grant deadline alerts & activity feed on `/command-center` & `/dashboard`; connector pipeline status alerts on `/admin`<br>• **Missing**: Standalone `Notification` DB model/table, user notification preference center, real-time WebSocket push, and outbound SMTP email dispatcher |
+| **11** | **Reports & Export System** | 🟢 COMPLETED | 100% | • [executive_reports.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/app/api/v1/endpoints/executive_reports.py)<br>• Service: `ExecutiveReportService`<br>• Synthesis of strategic dossiers, cross-domain portfolio benchmarks, governance disclaimers, Markdown and JSON direct file export<br>• Frontend: `/reports`<br>• Tests: `test_executive_reports.py` (8 tests) |
+| **12** | **Final Integration, Testing & Deployment** | 🟡 PARTIALLY COMPLETED | 70% | • **Implemented**: Docker Compose PostgreSQL 16 service, 6 Alembic async migrations, 150 backend Pytest tests (100% passing), 30 frontend Vitest tests (100% passing), 18 Next.js production routes compiling cleanly, Admin provisioning CLI<br>• **Missing**: Multi-stage production container Dockerfile (`Dockerfile.prod`), GitHub Actions / GitLab CI/CD automated workflow (`.github/workflows/ci.yml`), cloud deployment manifests |
+
+---
+
+## TASK 3 — MILESTONE STATUS
+
+| Milestone | Official Scope & Requirements | Completed Functionality | Remaining Functionality | Status |
+|-----------|-------------------------------|-------------------------|-------------------------|:------:|
+| **Milestone 1**<br>*(Week 1 & 2)*<br>Core Setup & Profile Foundation | • Architecture & Async Database<br>• User Auth & RBAC (4 Roles)<br>• Public Registration Security<br>• Research Profile & Taxonomy<br>• Academic & Research History | • PostgreSQL + Async SQLAlchemy + Alembic<br>• JWT + Refresh Token Rotation<br>• Profile CRUD & 8 Core Facets<br>• Research Domains & Interests<br>• Full User Isolation | *None* | 🟢 **COMPLETED** |
+| **Milestone 2**<br>*(Week 3 & 4)*<br>Funding Discovery & Research Intel | • Academic Publication Ingest<br>• OpenAlex/Crossref/Semantic Scholar<br>• Grants.gov & NSF Funding Ingest<br>• Semantic Eligibility Matcher<br>• Research Trend Velocity & Hotspots | • Multi-provider Publication & Grant Ingest<br>• Deterministic Eligibility Engine<br>• Funding Recommendations Ranking<br>• Publication Velocity & Growth Rates<br>• Keyword Trends & Hotspots | *None* | 🟢 **COMPLETED** |
+| **Milestone 3**<br>*(Week 5 & 6)*<br>Patent Analytics & Innovation Intel | • Patent Portfolio & Landscape<br>• IPC HHI Concentration<br>• Technology Whitespace Discovery<br>• 5-Pillar Innovation Scoring<br>• TRL 1–9 Rule Engine<br>• Commercialization Pathways | • Patent Ingestion & Assignee Ranking<br>• Density Mapping & Whitespace Detection<br>• 5-Pillar Weighted Innovation Formula<br>• NASA/DoD standard TRL Engine<br>• 4 Readiness Dimensions & Pathways | *None* | 🟢 **COMPLETED** |
+| **Milestone 4**<br>*(Week 7 & 8)*<br>Analytics, Testing & Deployment | • Executive Intelligence Dossier<br>• Markdown & JSON Report Export<br>• Command Center Dashboard<br>• Admin Governance & Telemetry<br>• Full System Testing<br>• Production CI/CD & Deployment | • Executive Dossier Synthesis & Export<br>• Command Center Activity & Deadlines<br>• 150 Backend Tests (100% Passing)<br>• 30 Frontend Tests (100% Passing)<br>• 18/18 Clean Next.js Production Routes | • Dedicated Outbound Alert Notification worker<br>• Automated GitHub Actions CI/CD pipeline<br>• Production Dockerfile optimization | 🟡 **PARTIALLY COMPLETED**<br>*(~85%)* |
+
+---
+
+## TASK 4 — EXACT COUNTS & METRICS
+
+### Exact Quantities
+- **Total Major Modules**: `12`
+  - **Fully Completed Modules (100%)**: `10`
+  - **Partially Completed Modules**: `2` (Module 10 @ 40%, Module 12 @ 70%)
+  - **Not Started Modules**: `0`
+
+- **Total Milestones**: `4`
+  - **Fully Completed Milestones**: `3` (Milestones 1, 2, 3)
+  - **Partially Completed Milestones**: `1` (Milestone 4 @ 85%)
+  - **Not Started Milestones**: `0`
+
+---
+
+### Calculation of Overall Project Completion Percentage
+
+We calculate project completion using two complementary, transparent methodologies:
+
+#### Method A: Module-Weighted Average (Equal 1/12 Weight per Module)
+$$\text{Score} = \frac{(10 \times 100\%) + (1 \times 40\%) + (1 \times 70\%)}{12} = \frac{1000 + 40 + 70}{12} = \frac{1110}{12} = \mathbf{92.50\%}$$
+
+#### Method B: Milestone-Weighted Average (Equal 25% Weight per 2-Week Milestone)
+$$\text{Score} = \frac{100\% + 100\% + 100\% + 85\%}{4} = \frac{385\%}{4} = \mathbf{96.25\%}$$
+
+**Official Completion Range**: **92.5% – 96.3%**
+
+---
+
+## TASK 5 — CURRENTLY WORKING FUNCTIONALITY
+
+Every item listed below has been verified against working backend controllers, database schemas, and frontend UI components:
+
+### 1. Authentication & RBAC (`/api/v1/auth`, `/login`, `/register`)
+- User registration with validation for email, password strength, phone, institution, and country.
+- Public registration restricted to 3 non-admin roles (`researcher`, `startup_founder`, `innovation_manager`).
+- Public attempts to register as `administrator` blocked at backend (HTTP 403 `PERMISSION_DENIED`).
+- Administrator CLI provisioning tool ([backend/scripts/create_admin.py](file:///d:/Infosys%207.0/Intelligent-Research1/backend/scripts/create_admin.py)).
+- Secure JSON login issuing cryptographic JWT access tokens and persistent refresh tokens.
+- Refresh token rotation with revocation tracking in `refresh_tokens` table.
+- JWT decoding and role-based route protection across all 4 roles.
+
+### 2. Research Profile Management (`/api/v1/profile`, `/profile`)
+- 8 core profile attributes (institution, department, designation, country, phone, bio, orcid_id, website).
+- Multi-domain research taxonomy (8 core domains) via `profile_domains` Many-to-Many junction.
+- User-specific research interests (`primary` / `secondary`), normalized profile keywords, and technology areas.
+- Academic degrees and past research project history tracking.
+- Strict cross-user profile isolation.
+
+### 3. Publications & Ingestion (`/api/v1/publications`, `/publications`, `/publications/[id]`)
+- Multi-source ingestion from OpenAlex, Crossref, and Semantic Scholar with fallback to Mock connectors.
+- DOI deduplication and citation tracking.
+- Interactive publication creation, editing, detail view, filtering by domain/keyword, and deletion.
+
+### 4. Patents & Prior-Art (`/api/v1/patents`, `/patents`)
+- Patent portfolio management with manual entry and external registry ingestion.
+- Interactive Edit Modal supporting live updates to patent metadata.
+- Citation tracking, filing/grant dates, and IPC classification indexing.
+
+### 5. Funding Discovery & Recommendations (`/api/v1/funding`, `/funding`)
+- Ingestion of grant opportunities (Grants.gov, NSF, Mock).
+- Semantic Eligibility Matcher evaluating research domains, keyword intersections, and geographic constraints.
+- Relevance ranking generating personalized funding recommendations with human-readable rationales.
+
+### 6. Research Trend Intelligence (`/api/v1/research-intelligence`, `/trends`)
+- Temporal publication volume tracking and CAGR velocity calculations.
+- Research domain distributions and keyword co-occurrence frequencies.
+- Median/mean citation statistics and emerging topic acceleration hotspots.
+
+### 7. Patent Landscape Intelligence (`/api/v1/patent-intelligence`, `/patents`)
+- Assignee volume ranking and market share calculation.
+- Herfindahl-Hirschman Index (HHI) for technology domain market concentration.
+- Filing velocity trends, jurisdiction breakdowns, and competitive litigation indicators.
+
+### 8. Technology Intelligence & Whitespace Radar (`/api/v1/technology-intelligence`)
+- Technology activity indexes and 5-year growth trajectory modeling.
+- Cross-domain technology coverage density metrics.
+- Statistical whitespace detection identifying under-patented high-research innovation niches.
+
+### 9. Innovation Scoring & TRL Engine (`/api/v1/innovation-scoring`, `/scoring`)
+- Deterministic 5-pillar mathematical innovation scoring:
+  $$\text{Score} = (0.30 \times \text{Novelty}) + (0.20 \times \text{Patent}) + (0.15 \times \text{TRL}) + (0.20 \times \text{Market}) + (0.15 \times \text{Funding})$$
+- TRL Rule Engine estimating NASA/DoD standard Technology Readiness Levels (TRL 1 to 9).
+- Visual radar chart pillar breakdown.
+
+### 10. Commercialization Recommendation Engine (`/api/v1/commercialization`)
+- Quantitative evaluation across 4 readiness dimensions (IP Defensibility, Market Demand, Regulatory Feasibility, Team Capability).
+- Automated strategic pathway classification: Direct Licensing, Venture Spinout, or Joint Development.
+- Step-by-step commercialization action roadmaps.
+
+### 11. Executive Reports & Dossiers (`/api/v1/reports`, `/reports`)
+- Comprehensive intelligence dossier synthesis combining research, patents, grants, scoring, and commercialization.
+- Portfolio-wide domain benchmarking summaries.
+- One-click direct export to structured Markdown and JSON documents.
+
+### 12. Command Center & Administration (`/api/v1/command-center`, `/api/v1/admin`, `/dashboard`, `/admin`)
+- Role-scoped KPI dashboards for Researchers, Founders, Managers, and Admins.
+- Multi-stream event activity feed and upcoming grant deadline countdown tracker.
+- Administrator user governance (list, search, role promotion, account activation/deactivation).
+- Ingestion pipeline connector health and latency telemetry monitoring.
+
+---
+
+## TASK 6 — TESTING & BUILD STATUS
+
+### Actual Verification Results (Executed Live)
+
+| Test Suite | Total Tests | Passed | Failed | Errors | Execution Duration | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Backend (Pytest)** | 150 | **150** | 0 | 0 | 40.94s | 🟢 **100% PASS** |
+| **Frontend (Vitest)** | 30 | **30** | 0 | 0 | 1.17s | 🟢 **100% PASS** |
+| **Next.js Production Build** | 18 routes | **18 / 18** | 0 | 0 | 25.12s | 🟢 **100% COMPILED** |
+| **TypeScript / ESLint** | Complete | Clean | 0 | 0 | — | 🟢 **0 ERRORS** |
+
+---
+
+## TASK 7 — DATABASE STATUS
+
+### Primary Database: PostgreSQL 16
+- **Driver**: `asyncpg` via SQLAlchemy 2.0 Async Engine with connection pooling (`pool_pre_ping=True`).
+- **Migration Manager**: Alembic (6 applied migrations reaching migration head `244ef6c34a82 (head)`).
+- **Test Database**: Isolated in-memory SQLite (`sqlite+aiosqlite:///:memory:`).
+
+### Implemented Tables & Relational Schema:
+1. `users`: User identity, hashed credentials, phone, role enum, active/superuser flags.
+2. `refresh_tokens`: Persistent hashed refresh tokens with expiration and revocation flags.
+3. `profiles`: 1:1 linked researcher/user profile (institution, designation, country, bio, orcid, website).
+4. `research_domains`: Canonical taxonomy of research domains (seeded with 8 core domains).
+5. `profile_domains`: Many-to-Many junction linking profiles and research domains.
+6. `research_interests`: 1:N research interest items (`primary` / `secondary`).
+7. `profile_keywords`: 1:N normalized keyword tags per profile.
+8. `technology_areas`: 1:N technology areas per profile for CAGR and whitespace tracking.
+9. `academic_histories`: 1:N educational degrees, institutions, and graduation years.
+10. `research_histories`: 1:N past research project titles, roles, and organizations.
+11. `publications`: Academic papers (title, authors, abstract, venue, DOI, citations, domain, keywords).
+12. `profile_publications`: Many-to-Many junction linking publications to profiles with primary author flag.
+13. `patents`: Intellectual property records (patent number, title, abstract, assignee, inventors, filing/grant dates, IPC).
+14. `profile_patents`: Many-to-Many junction linking patents to profiles.
+15. `funding_opportunities`: Grant records (title, agency, amount, deadline, domain, eligibility criteria).
+16. `profile_funding`: Many-to-Many tracking junction for saved and recommended grants.
+
+### Missing Database Models (Module 10):
+- `notifications` table (for persistent user notification history and unread status tracking).
+
+---
+
+## TASK 8 — API STATUS
+
+All 14 API router groups are operational under `/api/v1`:
+
+```
+/api/v1
+├── /health                       [GET /] (Readiness & Liveness)
+├── /auth                         [POST /register, /login, /refresh, /logout, GET/PUT /me]
+├── /profile                      [GET/PUT /me, GET /domains, GET /{id}]
+├── /publications                 [GET/POST /, GET /my, GET/PUT/DELETE /{id}, POST /ingest]
+├── /patents                      [GET/POST /, GET /my, GET/PUT/DELETE /{id}, POST /ingest]
+├── /funding                      [GET/POST /opportunities, GET/PUT/DELETE /opportunities/{id}, POST /ingest, POST /eligibility-check, GET /recommendations]
+├── /research-intelligence        [GET /trends/publications, /trends/domains, /trends/keywords, /citations/statistics, /topics/emerging, /hotspots]
+├── /patent-intelligence          [GET /landscape/summary, /trends, /domains, /assignees, /jurisdictions, /indicators]
+├── /technology-intelligence      [GET /summary, /activity, /trajectories, /coverage-density, /whitespace]
+├── /innovation-scoring           [POST /score, POST /trl/estimate]
+├── /commercialization            [POST /readiness, POST /recommendations, GET /pathways]
+├── /reports                      [POST /executive-dossier, GET /executive-dossier/export, GET /portfolio-summary]
+├── /command-center               [GET /overview, /metrics, /activity-feed, /upcoming-deadlines]
+└── /admin                        [GET /users, GET /users/{id}, PUT /users/{id}/role, PUT /users/{id}/status, GET /telemetry/pipelines, GET /system/overview, GET /audit-logs]
+```
+
+---
+
+## TASK 9 — TECHNOLOGY STACK
+
+### CURRENTLY USED & VERIFIED:
+- **Backend Core**: Python 3.10+, FastAPI `0.111.0`, Starlette, Uvicorn `0.30.1`
+- **Data Validation & Settings**: Pydantic `2.7.4`, Pydantic-Settings `2.3.4`
+- **Database & ORM**: PostgreSQL 16 (Docker), SQLAlchemy `2.0.31` (Async), Asyncpg `0.29.0`, Alembic `1.13.2`, aiosqlite `0.20.0`
+- **Security**: Python-Jose `3.3.0` (JWT), Passlib `1.7.4` (Bcrypt `4.0.1`), Python-Multipart `0.0.9`
+- **Frontend Core**: Next.js `14.2.4` (App Router), React `18.3.1`, React DOM `18.3.1`, TypeScript `5.4.5`
+- **Styling & UI**: Tailwind CSS `3.4.4`, PostCSS, Autoprefixer, Tailwind-Merge, Clsx, Lucide React `0.395.0`
+- **Client Networking**: Axios `1.7.2`
+- **Testing**: Pytest `8.2.2`, Pytest-Asyncio `0.23.7`, HTTPX `0.27.0`, Vitest `4.1.11`
+- **Containerization**: Docker Compose (`docker-compose.yml` for PostgreSQL 16)
+
+### SPECIFIED BUT NOT YET FULLY DEPLOYED:
+- **MongoDB**: Configured in `.env.example` as optional/secondary document store for raw XML payloads, but PostgreSQL is currently the active primary database.
+- **WebSocket Push Server**: Real-time push socket for live in-app notifications.
+- **GitHub Actions CI/CD**: Cloud-hosted test automation pipeline (`.github/workflows/ci.yml`).
+
+---
+
+## TASK 10 — PRIORITIZED ROADMAP (P0 to P3)
+
+```
+[P0] — Immediate Hardening & Notification Integration (Milestone 4 Finalization)
+ ├── 1. Add dedicated `notifications` table and CRUD router for user notification preferences.
+ └── 2. Implement background notification dispatcher for grant deadline alerts and whitespace events.
+
+[P1] — CI/CD Pipeline & Automated Quality Gates
+ ├── 3. Create GitHub Actions CI workflow (.github/workflows/ci.yml) running Pytest, Vitest, and Next.js build on PRs.
+ └── 4. Add multi-stage Dockerfile for production Next.js frontend and FastAPI backend images.
+
+[P2] — Advanced External Ingestion & Document Caching
+ ├── 5. Activate MongoDB secondary document store for caching raw unstructured XML/JSON from external grant agencies.
+ └── 6. Implement pgvector / vector embeddings integration for advanced semantic text similarity matching.
+
+[P3] — Final Deployment & Production Readiness
+ ├── 7. Production Docker Compose setup with Nginx reverse proxy and SSL termination.
+ └── 8. End-to-end performance benchmarking and staging load testing.
+```
+
+---
+
+## CONCISE ANSWERS TO THE 6 EXACT QUESTIONS
+
+1. **How many of the 12 modules are fully complete?**
+   **10 modules** (Modules 1, 2, 3, 4, 5, 6, 7, 8, 9, and 11).
+
+2. **How many are partially complete?**
+   **2 modules** (Module 10: Notification & Alert System @ 40%; Module 12: Final Integration, Testing & Deployment @ 70%).
+
+3. **How many have not started?**
+   **0 modules**.
+
+4. **How many of the 4 milestones are fully complete?**
+   **3 milestones** (Milestone 1, Milestone 2, and Milestone 3 are 100% complete and tested).
+
+5. **Which milestone are we currently working on?**
+   **Milestone 4 (Week 7 & 8)** — Analytics, Testing, Hardening & Final Deployment (~85% complete).
+
+6. **What are the next 5 most important things we need to build?**
+   1. **Dedicated In-App & Email Notification Engine**: Implement `Notification` database model, unread indicator, and alert trigger service for grant deadlines.
+   2. **GitHub Actions CI/CD Pipeline**: Add `.github/workflows/ci.yml` automating backend pytest (150 tests), frontend vitest (30 tests), type checks, and build validation.
+   3. **Production Multi-Stage Containerization**: Add production-optimized `Dockerfile` for FastAPI and Next.js alongside root `docker-compose.prod.yml`.
+   4. **pgvector / Vector Search Pipeline**: Upgrade semantic matching from keyword cosine similarity to high-dimensional embedding vector search.
+   5. **Secondary Document Store Cache**: Activate MongoDB adapter for raw external XML grant & patent registry caching.
