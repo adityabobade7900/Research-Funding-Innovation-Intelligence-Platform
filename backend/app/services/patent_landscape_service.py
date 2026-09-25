@@ -19,6 +19,12 @@ from app.schemas.patent_intelligence import (
     CompetitiveAssigneeItem,
     CompetitiveLandscapeResponse,
     PatentLandscapeSummary,
+    InnovationMapMatrixCell,
+    InnovationMapHotspot,
+    InnovationMapWhitespace,
+    InnovationMapResponse,
+    PatentRecommendationItem,
+    PatentRecommendationsResponse,
 )
 
 JURISDICTION_NAMES = {
@@ -278,10 +284,12 @@ class PatentLandscapeService:
         total_corpus = (await db.execute(total_q)).scalar() or 0
 
         assignees_list: List[AssigneeLandscapeItem] = []
+        hhi_sum = 0.0
 
         for r in rows:
             p_count = int(r.count)
             share_pct = round((p_count / total_corpus * 100.0), 2) if total_corpus > 0 else 0.0
+            hhi_sum += share_pct ** 2
             tot_cit = int(r.total_citations or 0)
             avg_cit = round(float(r.avg_citations or 0.0), 2)
             recent_cnt = int(r.recent_count or 0)
@@ -319,8 +327,18 @@ class PatentLandscapeService:
                 )
             )
 
+        hhi_score = round(hhi_sum, 2)
+        if hhi_score < 1500.0:
+            concentration_level = "DIVERSIFIED"
+        elif hhi_score <= 2500.0:
+            concentration_level = "MODERATELY_CONCENTRATED"
+        else:
+            concentration_level = "HIGHLY_CONCENTRATED"
+
         return AssigneesResponse(
             total_assignees=len(assignees_list),
+            assignee_concentration_hhi=hhi_score,
+            concentration_level=concentration_level,
             assignees=assignees_list,
         )
 
@@ -500,6 +518,9 @@ class PatentLandscapeService:
 
         return CompetitiveLandscapeResponse(
             total_competitors=len(competitors),
+            assignee_concentration_hhi=assignees_resp.assignee_concentration_hhi,
+            concentration_level=assignees_resp.concentration_level,
+            weighting_schema={"volume": 0.40, "velocity": 0.30, "citations": 0.20, "domain_breadth": 0.10},
             competitors=competitors,
         )
 
@@ -578,4 +599,250 @@ class PatentLandscapeService:
             top_domains=domains_resp.domains,
             top_assignees=assignees_resp.assignees,
             jurisdiction_distribution=jurisdictions_resp.jurisdictions,
+        )
+
+    @classmethod
+    async def get_innovation_map(
+        cls,
+        db: AsyncSession,
+        start_year: Optional[int] = None,
+        end_year: Optional[int] = None,
+        domain: Optional[str] = None,
+        assignee: Optional[str] = None,
+        jurisdiction: Optional[str] = None,
+        profile_id: Optional[int] = None,
+    ) -> InnovationMapResponse:
+        """
+        Synthesizes multi-dimensional relationships:
+        Patent -> Technology Domain -> Classification -> Assignee -> Innovation Activity.
+        Generates cross-tabulation matrix, active hotspots, and whitespace candidates.
+        """
+        from collections import Counter
+
+        current_year = datetime.now(timezone.utc).year
+        recent_threshold_year = current_year - 2
+
+        q = select(Patent)
+        q = cls._apply_base_filters(q, start_year, end_year, domain, assignee, jurisdiction, profile_id)
+        patents = (await db.execute(q)).scalars().all()
+
+        total_patents = len(patents)
+        if total_patents == 0:
+            return InnovationMapResponse(
+                total_patents=0,
+                domains=[],
+                assignees=[],
+                classifications=[],
+                matrix=[],
+                hotspots=[],
+                whitespaces=[],
+            )
+
+        domains_set = set()
+        assignees_set = set()
+        classifications_set = set()
+
+        # Matrix mapping: (domain, assignee) -> list of patent numbers
+        matrix_dict: Dict[Tuple[str, str], List[str]] = {}
+        # Hotspot mapping: (domain, classification) -> list of patents
+        hotspot_dict: Dict[Tuple[str, str], List[Patent]] = {}
+
+        for p in patents:
+            dom = p.technology_domain or "Unclassified"
+            ass = p.assignee or "Individual / Unassigned"
+            cls_code = p.patent_classification or "General"
+
+            domains_set.add(dom)
+            assignees_set.add(ass)
+            classifications_set.add(cls_code)
+
+            m_key = (dom, ass)
+            if m_key not in matrix_dict:
+                matrix_dict[m_key] = []
+            matrix_dict[m_key].append(p.patent_number)
+
+            h_key = (dom, cls_code)
+            if h_key not in hotspot_dict:
+                hotspot_dict[h_key] = []
+            hotspot_dict[h_key].append(p)
+
+        matrix_cells = [
+            InnovationMapMatrixCell(
+                domain=dom,
+                assignee=ass,
+                patent_count=len(p_nums),
+                patent_numbers=p_nums,
+            )
+            for (dom, ass), p_nums in sorted(matrix_dict.items(), key=lambda x: len(x[1]), reverse=True)
+        ]
+
+        hotspots: List[InnovationMapHotspot] = []
+        for (dom, cls_code), plist in hotspot_dict.items():
+            cnt = len(plist)
+            rec_cnt = sum(
+                1 for p in plist
+                if p.filing_date and hasattr(p.filing_date, "year") and p.filing_date.year >= recent_threshold_year
+            )
+            vel = round((rec_cnt / cnt * 100.0), 2) if cnt > 0 else 0.0
+
+            ass_counts = Counter(p.assignee for p in plist if p.assignee)
+            top_ass = [a for a, _ in ass_counts.most_common(3)]
+
+            if cnt >= 2 and vel >= 50.0:
+                act_type = "EXPANDING_CORE"
+            elif vel >= 50.0:
+                act_type = "HIGH_GROWTH"
+            else:
+                act_type = "EMERGING"
+
+            hotspots.append(
+                InnovationMapHotspot(
+                    domain=dom,
+                    classification=cls_code,
+                    patent_count=cnt,
+                    recent_count=rec_cnt,
+                    velocity_score=vel,
+                    top_assignees=top_ass,
+                    activity_type=act_type,
+                )
+            )
+        hotspots.sort(key=lambda h: (h.patent_count, h.velocity_score), reverse=True)
+
+        canonical_domains = [
+            "Quantum Technologies",
+            "Biotechnology & Genomic Sciences",
+            "Clean Energy & Sustainability",
+            "Artificial Intelligence & Machine Learning",
+            "Cybersecurity & Cryptography",
+        ]
+        whitespaces: List[InnovationMapWhitespace] = []
+        for c_dom in canonical_domains:
+            matched_patents = [p for p in patents if p.technology_domain and c_dom.lower() in p.technology_domain.lower()]
+            if not matched_patents:
+                whitespaces.append(
+                    InnovationMapWhitespace(
+                        domain=c_dom,
+                        whitespace_reason="Zero patent disclosures currently indexed in this technology field.",
+                        opportunity_level="HIGH",
+                        description=f"Significant unaddressed innovation space in {c_dom} with zero competing domestic or international filings registered in current corpus.",
+                    )
+                )
+            elif len(matched_patents) <= 1:
+                whitespaces.append(
+                    InnovationMapWhitespace(
+                        domain=c_dom,
+                        whitespace_reason=f"Sparse patent density ({len(matched_patents)} disclosure).",
+                        opportunity_level="MEDIUM",
+                        description=f"Emerging opportunity space in {c_dom} with minimal prior art and high potential for proprietary IP positioning.",
+                    )
+                )
+
+        return InnovationMapResponse(
+            total_patents=total_patents,
+            domains=sorted(list(domains_set)),
+            assignees=sorted(list(assignees_set)),
+            classifications=sorted(list(classifications_set)),
+            matrix=matrix_cells,
+            hotspots=hotspots,
+            whitespaces=whitespaces,
+        )
+
+    @classmethod
+    async def get_profile_recommendations(
+        cls,
+        user_id: int,
+        limit: int = 10,
+        db: AsyncSession = None,
+    ) -> PatentRecommendationsResponse:
+        """
+        Module 3 Research Intelligence Integration:
+        Recommends indexed patents relevant to the researcher's domains, keywords, and interests.
+        Excludes patents already linked to the researcher's profile.
+        """
+        from app.services.profile_service import ProfileService
+
+        profile = await ProfileService.get_or_create_profile(user_id=user_id, db=db)
+
+        profile_domains: List[str] = []
+        if getattr(profile, "domains", None):
+            profile_domains = [d.name for d in profile.domains if hasattr(d, "name") and d.name]
+
+        profile_keywords: List[str] = []
+        if getattr(profile, "keywords", None):
+            profile_keywords.extend([k.keyword for k in profile.keywords if hasattr(k, "keyword") and k.keyword])
+        if getattr(profile, "interests", None):
+            profile_keywords.extend([i.title for i in profile.interests if hasattr(i, "title") and i.title])
+        if getattr(profile, "technology_areas", None):
+            profile_keywords.extend([t.name for t in profile.technology_areas if hasattr(t, "name") and t.name])
+        profile_keywords = list(dict.fromkeys(profile_keywords))
+
+        # Query all patents excluding user's own linked patents
+        user_linked_q = select(profile_patents.c.patent_id).where(profile_patents.c.profile_id == profile.id)
+        user_patent_ids = (await db.execute(user_linked_q)).scalars().all()
+
+        pat_q = select(Patent)
+        if user_patent_ids:
+            pat_q = pat_q.where(Patent.id.notin_(user_patent_ids))
+        all_patents = (await db.execute(pat_q)).scalars().all()
+
+        recommendations: List[PatentRecommendationItem] = []
+
+        for p in all_patents:
+            matched_doms: List[str] = []
+            matched_kws: List[str] = []
+            score = 0.0
+
+            # 1. Domain match (+50 exact, +25 partial)
+            p_dom = (p.technology_domain or "").lower()
+            for pd in profile_domains:
+                pd_clean = pd.lower()
+                if pd_clean in p_dom or p_dom in pd_clean:
+                    matched_doms.append(pd)
+                    score += 50.0
+                    break
+
+            # 2. Keyword overlap in title and abstract (+10 per matched keyword up to 30)
+            text_corpus = f"{p.title or ''} {p.abstract or ''}".lower()
+            for kw in profile_keywords:
+                if kw and kw in text_corpus:
+                    matched_kws.append(kw)
+                    if len(matched_kws) <= 3:
+                        score += 10.0
+
+            # 3. Citation impact density (+ up to 20 pts)
+            score += min(20.0, p.citation_count * 0.5)
+
+            # Baseline relevance if corpus is small
+            if not matched_doms and not matched_kws:
+                score = max(10.0, min(30.0, p.citation_count * 1.0))
+                rationale = "General cross-domain intellectual property disclosure with active citation impact."
+            else:
+                dom_reason = f"matches your domain '{matched_doms[0]}'" if matched_doms else "aligns with your technical focus"
+                kw_reason = f"matches keywords: {', '.join(matched_kws[:3])}" if matched_kws else "provides complementary patent coverage"
+                rationale = f"Highly relevant to your research profile: {dom_reason} and {kw_reason}."
+
+            recommendations.append(
+                PatentRecommendationItem(
+                    patent_id=p.id,
+                    patent_number=p.patent_number,
+                    title=p.title,
+                    abstract=p.abstract,
+                    assignee=p.assignee,
+                    technology_domain=p.technology_domain,
+                    patent_classification=p.patent_classification,
+                    citation_count=p.citation_count,
+                    match_score=min(100.0, round(score, 1)),
+                    matched_domains=matched_doms,
+                    matched_keywords=matched_kws,
+                    rationale=rationale,
+                )
+            )
+
+        recommendations.sort(key=lambda r: r.match_score, reverse=True)
+
+        return PatentRecommendationsResponse(
+            total_recommendations=len(recommendations[:limit]),
+            profile_domains=profile_domains,
+            profile_keywords=profile_keywords,
+            recommendations=recommendations[:limit],
         )

@@ -9,6 +9,14 @@ class PillarScoreItem(BaseModel):
     weighted_score: float = Field(..., ge=0.0, le=100.0, description="Weighted contribution to overall score")
     is_proxy: bool = Field(True, description="Indicates whether this pillar uses an empirical proxy calculation")
     confidence: str = Field(..., description="Confidence level: HIGH, MEDIUM, LOW")
+    data_status: str = Field(
+        default="AVAILABLE",
+        description="Data availability status: AVAILABLE, INSUFFICIENT_DATA, DATA_UNAVAILABLE"
+    )
+    normalization_method: str = Field(
+        default="Linear bounded min-max mapping (0-100)",
+        description="Normalization and mathematical scaling method used for this pillar"
+    )
     contributing_signals: Dict[str, Any] = Field(default_factory=dict, description="Key metrics and signal values evaluated")
     evidence: List[str] = Field(default_factory=list, description="Concrete factual evidence supporting the pillar score")
     methodology_notes: str = Field(..., description="Methodology details and explanation of proxy formulation")
@@ -22,7 +30,7 @@ class TRLEstimationItem(BaseModel):
     confidence: str = Field(..., description="Statistical confidence: HIGH, MEDIUM, LOW")
     evidence: List[str] = Field(default_factory=list, description="Factual evidence items supporting the TRL level")
     limitations_and_assumptions: str = Field(
-        default="Empirical heuristic estimate based on indexed research publications, patent disclosures, grant status, and assignee profiles. Does not constitute an official certification."
+        default="Deterministic project heuristic estimate informed by NASA/DoD TRL stage definitions based on indexed research publications, patent disclosures, grant status, and assignee profiles. Does not constitute independent operational validation or official certification."
     )
 
 

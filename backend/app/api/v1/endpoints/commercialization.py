@@ -135,6 +135,8 @@ async def get_commercialization_evidence(
             }
             for r in result.recommendations
         ],
+        "commercialization_analysis": result.commercialization_analysis.model_dump() if result.commercialization_analysis else None,
+        "pathways": result.pathways.model_dump() if result.pathways else None,
         "funding_opportunities_matched": len(result.funding_opportunities),
         "whitespace_context": result.whitespace_context,
         "governance_disclaimer": result.governance_disclaimer,

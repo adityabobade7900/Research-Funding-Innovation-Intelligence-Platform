@@ -16,9 +16,11 @@ TRL_DESCRIPTIONS = {
 
 class TRLService:
     """
-    Deterministic Technology Readiness Level (TRL 1-9) Estimation Engine.
-    Evaluates empirical scientific publication maturity, patent disclosure lifecycle,
-    grant status, multi-jurisdiction protection, and assignee industrial engagement.
+    Deterministic Technology Readiness Level (TRL 1-9) Estimation Heuristic.
+    Informed by NASA/DoD TRL stage definitions. Evaluates empirical scientific
+    publication maturity, patent disclosure lifecycle, grant status, multi-jurisdiction
+    protection, and assignee industrial engagement as deterministic proxy signals.
+    Does not constitute independent operational validation.
     """
 
     @classmethod
@@ -53,39 +55,37 @@ class TRLService:
         # 1. Evaluate Patent Lifecycle Signals (TRL 4-9)
         if granted_patent_count >= 8 and jurisdiction_count >= 3 and assignee_count >= 3:
             trl = 9
-            evidence.append(f"Extensive global patent portfolio ({granted_patent_count} granted patents across {jurisdiction_count} jurisdictions).")
-            evidence.append(f"Broad commercial applicant engagement with {assignee_count} distinct assignees.")
+            evidence.append(f"Portfolio of {granted_patent_count} granted patents across {jurisdiction_count} jurisdictions with {assignee_count} distinct assignees is used by the deterministic project TRL heuristic as a proxy signal for the TRL 9 threshold. This does not constitute independent operational deployment, commercial operation, or mission success.")
         elif granted_patent_count >= 4 and jurisdiction_count >= 3:
             trl = 8
-            evidence.append(f"Substantial qualified patent portfolio ({granted_patent_count} granted patents) across multiple international registries ({jurisdiction_count} jurisdictions).")
+            evidence.append(f"Qualified portfolio of {granted_patent_count} granted patents across {jurisdiction_count} jurisdictions is used by the deterministic project TRL heuristic as a proxy signal for the TRL 8 threshold. This does not constitute independent operational qualification or commercial operation.")
             if has_industrial_assignee:
-                evidence.append("Active corporate/industrial assignees indicate operational integration.")
+                evidence.append("Corporate/industrial assignees provide empirical proxy signals within the heuristic, but do not provide independent proof of operational deployment.")
         elif granted_patent_count >= 2 and (jurisdiction_count >= 2 or has_industrial_assignee):
             trl = 7
-            evidence.append(f"Multi-jurisdiction granted patents ({granted_patent_count} grants across {jurisdiction_count} jurisdictions) indicate operational prototype demonstration.")
+            evidence.append(f"Multi-jurisdiction granted patents ({granted_patent_count} grants across {jurisdiction_count} jurisdictions) are used by the deterministic project TRL heuristic as a proxy signal for the TRL 7 threshold. This does not constitute independent operational prototype validation.")
             if has_industrial_assignee:
-                evidence.append("Industrial assignee participation indicates pre-commercial field testing.")
+                evidence.append("Industrial assignee participation serves as an empirical proxy signal within the heuristic; this does not constitute independent operational field validation.")
         elif granted_patent_count >= 2 or (granted_patent_count >= 1 and assignee_count >= 2):
             trl = 6
-            evidence.append(f"Granted patent disclosures ({granted_patent_count} grants) with collaborative assignee participation ({assignee_count} assignees).")
-            evidence.append("Demonstrates component/subsystem validation in a relevant environment.")
+            evidence.append(f"Granted patent disclosures ({granted_patent_count} grants) with collaborative assignee participation ({assignee_count} assignees) are used by the deterministic project TRL heuristic as a proxy signal for the TRL 6 threshold. This does not constitute independent validation in a relevant environment.")
         elif granted_patent_count >= 1:
             trl = 5
-            evidence.append(f"Initial granted patent protection ({granted_patent_count} grant) confirms functional technology validation in a relevant environment.")
+            evidence.append(f"One granted patent provides evidence of formal patent protection and is used by the deterministic project TRL heuristic as a signal for the TRL 5 threshold. This does not constitute independent operational validation.")
         elif patent_count >= 1:
             trl = 4
-            evidence.append(f"Active patent disclosures ({patent_count} pending applications) indicate laboratory component/subsystem validation.")
+            evidence.append(f"Active patent disclosures ({patent_count} application disclosures) provide evidence of technical disclosure and are used by the deterministic project TRL heuristic as a proxy signal for the TRL 4 laboratory validation threshold. This does not constitute independent laboratory validation.")
         else:
             # 2. Evaluate Academic / Publication Signals (TRL 1-3)
             if pub_count >= 5 or avg_pub_citations >= 15.0:
                 trl = 3
-                evidence.append(f"Substantial peer-reviewed publications ({pub_count} papers) with strong citation impact (average {avg_pub_citations:.1f} citations) establish experimental proof of concept.")
+                evidence.append(f"Peer-reviewed research publications ({pub_count} papers) with citation impact (average {avg_pub_citations:.1f} citations) are used by the deterministic project TRL heuristic as a proxy signal for the TRL 3 experimental proof-of-concept threshold.")
             elif pub_count >= 2 or avg_pub_citations >= 5.0:
                 trl = 2
-                evidence.append(f"Documented research publications ({pub_count} papers) demonstrate technology concept formulation and analytical validation.")
+                evidence.append(f"Documented research publications ({pub_count} papers) demonstrate technology concept formulation and are used by the deterministic project TRL heuristic as a proxy signal for the TRL 2 threshold.")
             else:
                 trl = 1
-                evidence.append(f"Early-stage academic publications ({pub_count} paper) document fundamental scientific principles.")
+                evidence.append(f"Early-stage academic publication evidence ({pub_count} paper) documents fundamental scientific principles corresponding to the TRL 1 threshold.")
 
         # Supporting evidence items
         if pub_count > 0 and trl >= 4:

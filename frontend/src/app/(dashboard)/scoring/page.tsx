@@ -10,7 +10,7 @@ import {
 
 export default function InnovationScoringPage() {
   const [myProfileOnly, setMyProfileOnly] = useState(false);
-  const [selectedDomain, setSelectedDomain] = useState('Quantum Computing');
+  const [selectedDomain, setSelectedDomain] = useState('Quantum Technologies');
   const [scoreData, setScoreData] = useState<InnovationScoreResponse | null>(null);
   const [summaryData, setSummaryData] = useState<InnovationScoringSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +60,16 @@ export default function InnovationScoringPage() {
 
   const selectedPillar = pillarsList.find((p) => p.key === selectedPillarKey)?.item;
 
+  const defaultDomains = [
+    'Quantum Technologies',
+    'Biotechnology & Genomic Sciences',
+    'Clean Energy & Sustainability',
+    'Cybersecurity & Cryptography',
+  ];
+  const allDomains = Array.from(
+    new Set([...defaultDomains, ...(summaryData?.top_innovating_domains.map((d) => d.domain) || [])])
+  );
+
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner */}
@@ -104,15 +114,9 @@ export default function InnovationScoringPage() {
               onChange={(e) => setSelectedDomain(e.target.value)}
               className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 w-full sm:w-64"
             >
-              <option value="Quantum Computing">Quantum Computing</option>
-              <option value="Artificial Intelligence">Artificial Intelligence</option>
-              <option value="Biotechnology">Biotechnology</option>
-              <option value="Synthetic Biology">Synthetic Biology</option>
-              <option value="Energy Storage">Energy Storage</option>
-              <option value="Robotics">Robotics</option>
-              {summaryData?.top_innovating_domains.map((d) => (
-                <option key={d.domain} value={d.domain}>
-                  {d.domain}
+              {allDomains.map((d) => (
+                <option key={d} value={d}>
+                  {d}
                 </option>
               ))}
             </select>
@@ -246,7 +250,18 @@ export default function InnovationScoringPage() {
                           {Math.round(item.weight * 100)}%
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-200">{item.pillar_name}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-slate-200">{item.pillar_name}</h4>
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold border ${
+                              item.data_status === 'AVAILABLE'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                : item.data_status === 'DATA_UNAVAILABLE'
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}>
+                              {item.data_status.replace(/_/g, ' ')}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-slate-400 font-mono">
                             Confidence: {item.confidence} {item.is_proxy && '• Empirical Proxy'}
                           </span>
@@ -291,9 +306,20 @@ export default function InnovationScoringPage() {
                   </span>
                   <h3 className="text-base font-bold text-white">{selectedPillar?.pillar_name}</h3>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-950 border border-slate-800 text-slate-300">
-                  Weight: {Math.round((selectedPillar?.weight ?? 0) * 100)}%
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                    selectedPillar?.data_status === 'AVAILABLE'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : selectedPillar?.data_status === 'DATA_UNAVAILABLE'
+                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    {selectedPillar?.data_status?.replace(/_/g, ' ') || 'AVAILABLE'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-950 border border-slate-800 text-slate-300">
+                    Weight: {Math.round((selectedPillar?.weight ?? 0) * 100)}%
+                  </span>
+                </div>
               </div>
 
               {/* Signals */}
@@ -327,7 +353,14 @@ export default function InnovationScoringPage() {
                 </ul>
               </div>
 
-              <div className="pt-2 border-t border-slate-800">
+              {/* Normalization & Methodology Notes */}
+              <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Normalization Method:
+                </span>
+                <p className="text-[11px] text-indigo-300 bg-slate-950/90 p-2 rounded-xl border border-slate-800/80 font-mono">
+                  {selectedPillar?.normalization_method}
+                </p>
                 <p className="text-[10px] text-slate-500 italic">
                   {selectedPillar?.methodology_notes}
                 </p>
@@ -341,7 +374,7 @@ export default function InnovationScoringPage() {
               <div>
                 <h3 className="text-sm font-bold text-white">Technology Readiness Level (TRL 1-9) Estimation</h3>
                 <p className="text-xs text-slate-400">
-                  Standardized 9-stage evaluation based on academic publications, patent disclosure status, multi-jurisdiction filings, and assignee commercial engagement.
+                  Deterministic 9-stage evaluation heuristic informed by NASA/DoD TRL definitions based on academic publications, patent disclosures, multi-jurisdiction filings, and assignee commercial engagement.
                 </p>
               </div>
               <div className="text-right">
@@ -374,7 +407,7 @@ export default function InnovationScoringPage() {
 
             {/* TRL Evidence Cards */}
             <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
-              <span className="text-xs font-semibold text-slate-200 block">TRL Evaluation Rationale & Empirical Proof:</span>
+              <span className="text-xs font-semibold text-slate-200 block">TRL Evaluation Rationale & Proxy Signals:</span>
               <ul className="space-y-1">
                 {scoreData?.trl.evidence.map((ev, idx) => (
                   <li key={idx} className="text-xs text-slate-400 flex items-start gap-2">

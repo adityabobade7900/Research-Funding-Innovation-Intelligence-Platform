@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_active_user
+from app.core.deps import get_db, get_current_active_user, get_current_user_optional
 from app.models.user import User
 from app.schemas.patent import (
     PatentCreate,
@@ -121,14 +121,48 @@ async def get_my_patents(
 @router.get("/{id}", response_model=ApiResponse[PatentRead], status_code=status.HTTP_200_OK)
 async def get_patent_by_id(
     id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
-    """Retrieves details of a specific patent by ID."""
+    """Retrieves details of a specific patent by ID, including user bookmark association."""
     pat = await PatentService.get_patent(patent_id=id, db=db)
+    pat_read = PatentRead.model_validate(pat)
+    if current_user:
+        pat_read.is_bookmarked = await PatentService.is_patent_bookmarked(patent_id=id, user_id=current_user.id, db=db)
     return ApiResponse(
         success=True,
-        data=PatentRead.model_validate(pat),
+        data=pat_read,
         message="Patent details retrieved successfully"
+    )
+
+
+@router.post("/{id}/bookmark", response_model=ApiResponse[dict], status_code=status.HTTP_200_OK)
+async def bookmark_patent(
+    id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Links or bookmarks an indexed patent to the authenticated researcher's profile."""
+    await PatentService.bookmark_patent(patent_id=id, user_id=current_user.id, db=db)
+    return ApiResponse(
+        success=True,
+        data={"patent_id": id, "bookmarked": True},
+        message="Patent linked to profile successfully"
+    )
+
+
+@router.delete("/{id}/bookmark", response_model=ApiResponse[dict], status_code=status.HTTP_200_OK)
+async def remove_patent_bookmark(
+    id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Removes a patent link/bookmark from the authenticated researcher's profile."""
+    await PatentService.remove_bookmark(patent_id=id, user_id=current_user.id, db=db)
+    return ApiResponse(
+        success=True,
+        data={"patent_id": id, "bookmarked": False},
+        message="Patent unlinked from profile successfully"
     )
 
 

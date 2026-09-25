@@ -55,6 +55,7 @@ class PatentUpdate(BaseModel):
 
 class PatentRead(PatentBase):
     id: int
+    is_bookmarked: Optional[bool] = None
     created_at: datetime
     updated_at: datetime
 

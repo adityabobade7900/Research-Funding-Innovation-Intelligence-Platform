@@ -43,6 +43,8 @@ export interface AssigneeLandscapeItem {
 
 export interface AssigneesResponse {
   total_assignees: number;
+  assignee_concentration_hhi?: number;
+  concentration_level?: 'DIVERSIFIED' | 'MODERATELY_CONCENTRATED' | 'HIGHLY_CONCENTRATED';
   assignees: AssigneeLandscapeItem[];
 }
 
@@ -83,6 +85,9 @@ export interface CompetitiveAssigneeItem {
 
 export interface CompetitiveLandscapeResponse {
   total_competitors: number;
+  assignee_concentration_hhi?: number;
+  concentration_level?: 'DIVERSIFIED' | 'MODERATELY_CONCENTRATED' | 'HIGHLY_CONCENTRATED';
+  weighting_schema?: Record<string, number>;
   methodology_disclaimer: string;
   competitors: CompetitiveAssigneeItem[];
 }
@@ -100,4 +105,96 @@ export interface PatentLandscapeSummary {
   top_domains: TechnologyDomainItem[];
   top_assignees: AssigneeLandscapeItem[];
   jurisdiction_distribution: JurisdictionItem[];
+}
+
+// --- Machine Learning Clustering Types ---
+export interface PatentClusterMember {
+  patent_id: number;
+  patent_number: string;
+  title: string;
+  assignee: string | null;
+  technology_domain: string | null;
+  patent_classification: string | null;
+  citation_count: number;
+  distance_to_centroid: number | null;
+  explanation: string;
+}
+
+export interface PatentClusterItem {
+  cluster_id: number;
+  cluster_name: string;
+  technology_domain: string;
+  patent_count: number;
+  share_percentage: number;
+  dominant_terms: string[];
+  average_citations: number;
+  representative_patents: PatentClusterMember[];
+  description: string;
+}
+
+export interface PatentClusteringResponse {
+  total_patents: number;
+  total_clusters: number;
+  algorithm: string;
+  k_requested: number | null;
+  clusters: PatentClusterItem[];
+  disclaimer: string;
+}
+
+// --- Innovation Mapping Types ---
+export interface InnovationMapMatrixCell {
+  domain: string;
+  assignee: string;
+  patent_count: number;
+  patent_numbers: string[];
+}
+
+export interface InnovationMapHotspot {
+  domain: string;
+  classification: string;
+  patent_count: number;
+  recent_count: number;
+  velocity_score: number;
+  top_assignees: string[];
+  activity_type: 'EXPANDING_CORE' | 'HIGH_GROWTH' | 'EMERGING';
+}
+
+export interface InnovationMapWhitespace {
+  domain: string;
+  whitespace_reason: string;
+  opportunity_level: 'HIGH' | 'MEDIUM' | 'MODERATE';
+  description: string;
+}
+
+export interface InnovationMapResponse {
+  total_patents: number;
+  domains: string[];
+  assignees: string[];
+  classifications: string[];
+  matrix: InnovationMapMatrixCell[];
+  hotspots: InnovationMapHotspot[];
+  whitespaces: InnovationMapWhitespace[];
+}
+
+// --- Profile Patent Recommendations Types ---
+export interface PatentRecommendationItem {
+  patent_id: number;
+  patent_number: string;
+  title: string;
+  abstract: string | null;
+  assignee: string | null;
+  technology_domain: string | null;
+  patent_classification: string | null;
+  citation_count: number;
+  match_score: number;
+  matched_domains: string[];
+  matched_keywords: string[];
+  rationale: string;
+}
+
+export interface PatentRecommendationsResponse {
+  total_recommendations: number;
+  profile_domains: string[];
+  profile_keywords: string[];
+  recommendations: PatentRecommendationItem[];
 }

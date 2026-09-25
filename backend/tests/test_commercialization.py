@@ -316,3 +316,206 @@ async def test_commercialization_api_endpoints(client: AsyncClient):
     res_ev = await client.get("/api/v1/commercialization/evidence?domain=Quantum Computing")
     assert res_ev.status_code == 200
     assert "recommendations" in res_ev.json()["data"]
+    assert "pathways" in res_ev.json()["data"]
+    assert "commercialization_analysis" in res_ev.json()["data"]
+
+
+@pytest.mark.asyncio
+async def test_four_commercialization_pathways_structure(client: AsyncClient):
+    """
+    Validates that response contains the four canonical pathways:
+    Productization, Licensing, Startup Creation, and Industry Partnership.
+    """
+    async with TestingSessionLocal() as session:
+        pub = Publication(
+            title="High-Q Photonic Crystal Nanocavities for Integrated Sensing",
+            authors="Dr. Optical",
+            doi="10.1364/oe.2025.101",
+            publication_date=datetime(2025, 2, 1, tzinfo=timezone.utc),
+            citation_count=20,
+            primary_domain="Photonics",
+            venue="Optics Express",
+            source="manual",
+        )
+        pat = Patent(
+            patent_number="US11555666B2",
+            title="Photonic Nanocavity Resonator Circuit",
+            assignee="OptoTech Corp",
+            technology_domain="Photonics",
+            filing_date=datetime(2023, 7, 1, tzinfo=timezone.utc),
+            publication_date=datetime(2024, 11, 15, tzinfo=timezone.utc),
+            citation_count=12,
+        )
+        session.add_all([pub, pat])
+        await session.commit()
+
+    resp = await client.get("/api/v1/commercialization/recommendations?domain=Photonics")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    assert "pathways" in data
+    pathways = data["pathways"]
+
+    # 1. Productization
+    assert "productization" in pathways
+    prod = pathways["productization"]
+    assert prod["pathway"] == "PRODUCTIZATION"
+    assert len(prod["product_concept"]) > 0
+    assert len(prod["target_industry"]) > 0
+    assert len(prod["main_use_case"]) > 0
+    assert len(prod["required_next_steps"]) >= 2
+
+    # 2. Licensing
+    assert "licensing" in pathways
+    lic = pathways["licensing"]
+    assert lic["pathway"] == "LICENSING"
+    assert len(lic["licensing_candidates"]) >= 1
+    assert any(c["organization"] == "OptoTech Corp" for c in lic["licensing_candidates"])
+
+    # 3. Startup Creation
+    assert "startup_creation" in pathways
+    startup = pathways["startup_creation"]
+    assert startup["pathway"] == "STARTUP_CREATION"
+    assert len(startup["startup_concept"]) > 0
+    assert len(startup["business_model_hypothesis"]) > 0
+
+    # 4. Industry Partnership
+    assert "industry_partnership" in pathways
+    part = pathways["industry_partnership"]
+    assert part["pathway"] == "INDUSTRY_PARTNERSHIP"
+    assert len(part["partnership_candidates"]) >= 1
+
+
+async def _seed_photonics_test_data():
+    async with TestingSessionLocal() as session:
+        pub = Publication(
+            title="High-Q Photonic Crystal Nanocavities for Integrated Sensing",
+            authors="Dr. Optical",
+            doi="10.1364/oe.2025.101",
+            publication_date=datetime(2025, 2, 1, tzinfo=timezone.utc),
+            citation_count=20,
+            primary_domain="Photonics",
+            venue="Optics Express",
+            source="manual",
+        )
+        pat = Patent(
+            patent_number="US11555666B2",
+            title="Photonic Nanocavity Resonator Circuit",
+            assignee="OptoTech Corp",
+            technology_domain="Photonics",
+            filing_date=datetime(2023, 7, 1, tzinfo=timezone.utc),
+            publication_date=datetime(2024, 11, 15, tzinfo=timezone.utc),
+            citation_count=12,
+        )
+        session.add_all([pub, pat])
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_licensing_candidate_detection_from_patent_assignees(client: AsyncClient):
+    """
+    Validates Module 5 patent assignee consumption: real corporate assignees become potential licensing candidates.
+    """
+    await _seed_photonics_test_data()
+    resp = await client.get("/api/v1/commercialization/recommendations?domain=Photonics")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    lic_candidates = data["pathways"]["licensing"]["licensing_candidates"]
+    assert len(lic_candidates) >= 1
+    cand = lic_candidates[0]
+    assert cand["organization"] == "OptoTech Corp"
+    assert cand["patent_count"] >= 1
+    assert "Potential licensing candidate" in cand["suggested_licensing_rationale"]
+    assert cand["data_status"] == "AVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_commercialization_analysis_problem_fit_and_adoption_status(client: AsyncClient):
+    """
+    Validates commercialization analysis: application areas, industries, fit, and DATA_UNAVAILABLE adoption telemetry.
+    """
+    await _seed_photonics_test_data()
+    resp = await client.get("/api/v1/commercialization/recommendations?domain=Photonics")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    assert "commercialization_analysis" in data
+    analysis = data["commercialization_analysis"]
+    assert len(analysis["potential_application_areas"]) >= 2
+    assert len(analysis["relevant_industries"]) >= 1
+    assert len(analysis["supporting_evidence"]) >= 2
+    assert analysis["commercial_adoption_telemetry"] == "DATA_UNAVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_unmeasured_dimensions_and_data_status(client: AsyncClient):
+    """
+    Validates that unmeasured readiness dimensions (regulatory feasibility, team capability)
+    are explicitly marked DATA_UNAVAILABLE and not fabricated.
+    """
+    await _seed_photonics_test_data()
+    resp = await client.get("/api/v1/commercialization/readiness?domain=Photonics")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    assert "unmeasured_dimensions" in data
+    unmeasured = data["unmeasured_dimensions"]
+    assert unmeasured["regulatory_feasibility"] == "DATA_UNAVAILABLE"
+    assert unmeasured["team_capability"] == "DATA_UNAVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_no_patents_licensing_insufficient_data(client: AsyncClient):
+    """
+    Validates that a domain with 0 patents returns licensing data_status = INSUFFICIENT_DATA and 0 candidates.
+    """
+    async with TestingSessionLocal() as session:
+        pub = Publication(
+            title="Pure Mathematical Number Theory Foundations",
+            authors="Dr. Gauss",
+            doi="10.1007/math.2025.101",
+            publication_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            citation_count=5,
+            primary_domain="Abstract Mathematics",
+            venue="Annals of Math",
+            source="manual",
+        )
+        session.add(pub)
+        await session.commit()
+
+    resp = await client.get("/api/v1/commercialization/recommendations?domain=Abstract Mathematics")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    lic = data["pathways"]["licensing"]
+    assert lic["data_status"] == "INSUFFICIENT_DATA"
+    assert len(lic["licensing_candidates"]) == 0
+    assert "No patent disclosures" in lic["ip_ownership_basis"]
+
+
+@pytest.mark.asyncio
+async def test_potential_candidate_conservative_wording(client: AsyncClient):
+    """
+    Validates that conservative phrasing is strictly maintained across all pathways:
+    No guarantees, no 'will license', no 'will become successful startup'.
+    """
+    await _seed_photonics_test_data()
+    resp = await client.get("/api/v1/commercialization/recommendations?domain=Photonics")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    text_corpus = (
+        str(data["pathways"])
+        + " "
+        + str(data["recommendations"])
+        + " "
+        + str(data["commercialization_analysis"])
+    )
+
+    # Strictly forbidden definitive claims
+    assert "will license this technology" not in text_corpus.lower()
+    assert "will become a successful startup" not in text_corpus.lower()
+    assert "will partner with the researcher" not in text_corpus.lower()
+    assert "guaranteed commercial" not in text_corpus.lower()
+

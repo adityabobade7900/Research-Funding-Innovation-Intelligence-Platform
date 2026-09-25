@@ -13,6 +13,7 @@ export interface Patent {
   source: string;
   external_id: string | null;
   url: string | null;
+  is_bookmarked?: boolean;
   created_at: string;
   updated_at: string;
 }

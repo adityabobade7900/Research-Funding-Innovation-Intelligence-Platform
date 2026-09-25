@@ -9,6 +9,7 @@ from app.models.profile import Profile
 from app.models.publication import Publication, profile_publications
 from app.models.patent import Patent, profile_patents
 from app.models.funding import FundingOpportunity
+from app.models.research_domain import ResearchDomain, profile_domains
 from app.services.trl_service import TRLService
 from app.services.innovation_scoring_service import InnovationScoringService
 
@@ -381,3 +382,270 @@ async def test_innovation_scoring_api_endpoints(client: AsyncClient):
     assert "trl_evidence" in ev_data
     assert "pillar_evidence" in ev_data
     assert "governance_disclaimer" in ev_data
+
+    # Check evidence points contain data_status and normalization_method
+    for p_key, p_val in ev_data["pillar_evidence"].items():
+        assert "data_status" in p_val
+        assert p_val["data_status"] in ["AVAILABLE", "INSUFFICIENT_DATA", "DATA_UNAVAILABLE"]
+        assert "normalization_method" in p_val
+        assert len(p_val["normalization_method"]) > 5
+
+
+@pytest.mark.asyncio
+async def test_module_6_maturity_50_50_blend_integration(client: AsyncClient):
+    """
+    Validates Correction 1: Technology Maturity combines Module 6 maturity (50%) and TRL (50%).
+    Formula: 0.50 * Module 6 Maturity Score + 0.50 * ((TRL / 9.0) * 100).
+    """
+    async with TestingSessionLocal() as session:
+        pub = Publication(
+            title="Advanced Metamaterials in Optical Computing",
+            authors="Dr. Physics",
+            publication_date=datetime(2025, 1, 15, tzinfo=timezone.utc),
+            citation_count=10,
+            primary_domain="Metamaterials",
+            venue="Optics Express",
+            source="manual",
+        )
+        pat = Patent(
+            patent_number="US9988776B1",
+            title="Photonic Metamaterial Resonator",
+            assignee="Optics Corp",
+            technology_domain="Metamaterials",
+            filing_date=datetime(2024, 2, 1, tzinfo=timezone.utc),
+            publication_date=datetime(2024, 10, 1, tzinfo=timezone.utc),
+            citation_count=5,
+        )
+        session.add_all([pub, pat])
+        await session.commit()
+
+    resp = await client.get("/api/v1/innovation-scoring/score?domain=Metamaterials")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    mat_pillar = data["pillars"]["technology_maturity"]
+    signals = mat_pillar["contributing_signals"]
+
+    assert "module6_maturity_score" in signals
+    assert "estimated_trl" in signals
+    assert "trl_normalized_score" in signals
+    assert signals["blend_formulation"] == "50% Module 6 Maturity + 50% TRL Readiness Score"
+
+    # Mathematical blend check: 0.50 * m6 + 0.50 * trl_norm
+    expected_blend = round(
+        (0.50 * signals["module6_maturity_score"]) + (0.50 * signals["trl_normalized_score"]),
+        2
+    )
+    assert abs(mat_pillar["score"] - expected_blend) < 0.05
+    assert mat_pillar["weight"] == 0.15
+    assert mat_pillar["data_status"] == "AVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_missing_funding_data_policy_and_data_status(client: AsyncClient):
+    """
+    Validates Correction 3: Missing funding data does NOT equate to zero.
+    When a researched domain has no indexed grants, data_status = DATA_UNAVAILABLE and neutral proxy (50.0) applies.
+    """
+    async with TestingSessionLocal() as session:
+        pub = Publication(
+            title="Exotic Plasma Torus Confinement for Space Propulsion",
+            authors="Dr. Rocket",
+            publication_date=datetime(2025, 2, 10, tzinfo=timezone.utc),
+            citation_count=12,
+            primary_domain="Space Propulsion",
+            venue="Aerospace Journal",
+            source="manual",
+        )
+        pat = Patent(
+            patent_number="US10223344B1",
+            title="Magnetoplasmadynamic Thruster Nozzle",
+            assignee="Space Labs",
+            technology_domain="Space Propulsion",
+            filing_date=datetime(2024, 3, 1, tzinfo=timezone.utc),
+            publication_date=datetime(2024, 11, 1, tzinfo=timezone.utc),
+            citation_count=4,
+        )
+        session.add_all([pub, pat])
+        await session.commit()
+
+    resp = await client.get("/api/v1/innovation-scoring/score?domain=Space Propulsion")
+    assert resp.status_code == 200
+    funding_p = resp.json()["data"]["pillars"]["funding_relevance"]
+
+    assert funding_p["data_status"] == "DATA_UNAVAILABLE"
+    assert funding_p["score"] == 50.0
+    assert funding_p["weighted_score"] == 7.5
+    assert any("Neutral baseline proxy (50.0)" in ev for ev in funding_p["evidence"])
+
+
+@pytest.mark.asyncio
+async def test_blank_researcher_profile_funding_isolation(client: AsyncClient):
+    """
+    Validates Correction 4: Blank researcher profile receives INSUFFICIENT_DATA and score 0.0,
+    proving global funding grants do NOT leak to unrelated profiles.
+    """
+    async with TestingSessionLocal() as session:
+        # Create user & profile with NO publications, NO patents, and NO research domains
+        user_blank = User(
+            email="blank_researcher@institute.edu",
+            hashed_password="hashed_pw_test",
+            full_name="Dr. Blank Researcher",
+            role=UserRole.RESEARCHER,
+            is_active=True,
+        )
+        session.add(user_blank)
+        await session.flush()
+
+        prof_blank = Profile(user_id=user_blank.id, institution="Institute")
+        session.add(prof_blank)
+
+        # Create global grant that must NOT leak to the blank profile
+        grant = FundingOpportunity(
+            title="Global Million Dollar Innovation Grant",
+            description="Broad funding for tech.",
+            funding_agency="Global Agency",
+            funding_amount=2000000.0,
+            status="open",
+            application_deadline=datetime(2027, 1, 1, tzinfo=timezone.utc),
+            external_id="GLOBAL-GRANT-2027",
+            source="manual",
+        )
+        session.add(grant)
+        await session.commit()
+
+        score_resp = await InnovationScoringService.calculate_innovation_score(profile_id=prof_blank.id, db=session)
+        funding_p = score_resp.pillars["funding_relevance"]
+
+        assert funding_p.score == 0.0
+        assert funding_p.data_status == "INSUFFICIENT_DATA"
+        assert funding_p.confidence == "LOW"
+        assert "Blank researcher profile" in funding_p.evidence[0]
+
+
+@pytest.mark.asyncio
+async def test_researcher_profile_with_matching_domain_funding(client: AsyncClient):
+    """
+    Validates Correction 4: Profile with registered research domain correctly matches domain-specific funding.
+    """
+    async with TestingSessionLocal() as session:
+        user = User(
+            email="matched_researcher@institute.edu",
+            hashed_password="hashed_pw_test",
+            full_name="Dr. Matched Researcher",
+            role=UserRole.RESEARCHER,
+            is_active=True,
+        )
+        session.add(user)
+        await session.flush()
+
+        prof = Profile(user_id=user.id, institution="Institute")
+        session.add(prof)
+        await session.flush()
+
+        dom = ResearchDomain(name="Supercomputing Architectures")
+        session.add(dom)
+        await session.flush()
+        await session.execute(profile_domains.insert().values(profile_id=prof.id, domain_id=dom.id))
+
+        grant = FundingOpportunity(
+            title="DOE Supercomputing Architectures Research Grant",
+            description="Massive scale supercomputing grant.",
+            funding_agency="Department of Energy",
+            funding_amount=1000000.0,
+            status="open",
+            application_deadline=datetime(2027, 1, 1, tzinfo=timezone.utc),
+            external_id="DOE-SUPERCOMP-2027",
+            source="manual",
+        )
+        session.add(grant)
+        await session.commit()
+
+        score_resp = await InnovationScoringService.calculate_innovation_score(profile_id=prof.id, db=session)
+        funding_p = score_resp.pillars["funding_relevance"]
+
+        assert funding_p.data_status == "AVAILABLE"
+        assert funding_p.score > 0.0
+        assert funding_p.contributing_signals["matching_opportunities_count"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_market_potential_decoupled_from_publications(client: AsyncClient):
+    """
+    Validates Correction 5: Publication count does NOT inflate Market Potential.
+    A domain with 20 papers and 0 patents/velocity maintains market_score = 0.0 and INSUFFICIENT_DATA.
+    """
+    async with TestingSessionLocal() as session:
+        for i in range(15):
+            pub = Publication(
+                title=f"Theoretical Pure Mathematics Research Volume {i}",
+                authors="Dr. Theorist",
+                publication_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                citation_count=5,
+                primary_domain="Pure Mathematics",
+                venue="Math Annals",
+                source="manual",
+            )
+            session.add(pub)
+        await session.commit()
+
+    resp = await client.get("/api/v1/innovation-scoring/score?domain=Pure Mathematics")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+
+    market_p = data["pillars"]["market_potential"]
+    novelty_p = data["pillars"]["research_novelty"]
+
+    # Research novelty is high because of 15 papers
+    assert novelty_p["score"] > 60.0
+    # Market potential is decoupled from publication count and does not claim market demand from paper count
+    assert market_p["score"] == 0.0
+    assert market_p["data_status"] == "INSUFFICIENT_DATA"
+    assert market_p["contributing_signals"]["commercial_adoption_telemetry"] == "DATA_UNAVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_all_nine_trl_levels_progression():
+    """
+    Validates all 9 TRL levels in TRLService with standard NASA/DoD stage categories.
+    """
+    # TRL 1
+    t1 = TRLService.estimate_trl(pub_count=1, recent_pub_count=1, avg_pub_citations=1.0, patent_count=0, granted_patent_count=0, jurisdiction_count=0, assignee_count=0)
+    assert t1.estimated_trl == 1
+    assert t1.trl_stage == "Basic Research"
+
+    # TRL 2
+    t2 = TRLService.estimate_trl(pub_count=3, recent_pub_count=2, avg_pub_citations=6.0, patent_count=0, granted_patent_count=0, jurisdiction_count=0, assignee_count=0)
+    assert t2.estimated_trl == 2
+
+    # TRL 3
+    t3 = TRLService.estimate_trl(pub_count=6, recent_pub_count=4, avg_pub_citations=16.0, patent_count=0, granted_patent_count=0, jurisdiction_count=0, assignee_count=0)
+    assert t3.estimated_trl == 3
+
+    # TRL 4
+    t4 = TRLService.estimate_trl(pub_count=2, recent_pub_count=1, avg_pub_citations=5.0, patent_count=1, granted_patent_count=0, jurisdiction_count=1, assignee_count=1)
+    assert t4.estimated_trl == 4
+    assert t4.trl_stage == "Laboratory Validation"
+
+    # TRL 5
+    t5 = TRLService.estimate_trl(pub_count=2, recent_pub_count=1, avg_pub_citations=5.0, patent_count=2, granted_patent_count=1, jurisdiction_count=1, assignee_count=1)
+    assert t5.estimated_trl == 5
+
+    # TRL 6
+    t6 = TRLService.estimate_trl(pub_count=3, recent_pub_count=2, avg_pub_citations=8.0, patent_count=3, granted_patent_count=2, jurisdiction_count=1, assignee_count=1)
+    assert t6.estimated_trl == 6
+    assert t6.trl_stage == "System Demonstration"
+
+    # TRL 7
+    t7 = TRLService.estimate_trl(pub_count=4, recent_pub_count=2, avg_pub_citations=10.0, patent_count=4, granted_patent_count=2, jurisdiction_count=2, assignee_count=1)
+    assert t7.estimated_trl == 7
+
+    # TRL 8
+    t8 = TRLService.estimate_trl(pub_count=5, recent_pub_count=3, avg_pub_citations=15.0, patent_count=6, granted_patent_count=4, jurisdiction_count=3, assignee_count=2)
+    assert t8.estimated_trl == 8
+
+    # TRL 9
+    t9 = TRLService.estimate_trl(pub_count=10, recent_pub_count=5, avg_pub_citations=25.0, patent_count=12, granted_patent_count=8, jurisdiction_count=3, assignee_count=3)
+    assert t9.estimated_trl == 9
+    assert t9.score == 100.0
+

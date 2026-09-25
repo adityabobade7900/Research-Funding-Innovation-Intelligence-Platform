@@ -28,6 +28,33 @@ export interface FundingOpportunity {
   updated_at: string;
   domains: ResearchDomain[];
   keywords: FundingKeyword[];
+  days_remaining?: number | null;
+  deadline_urgency?: 'CRITICAL' | 'URGENT' | 'NORMAL' | 'ROLLING' | 'EXPIRED';
+  is_expired?: boolean;
+  is_saved?: boolean;
+}
+
+export interface SavedFundingItem {
+  id: number;
+  user_id: number;
+  funding_opportunity_id: number;
+  notes: string | null;
+  created_at: string;
+  opportunity: FundingOpportunity;
+}
+
+export interface SavedFundingListResponse {
+  items: SavedFundingItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface SaveFundingToggleResponse {
+  saved: boolean;
+  funding_opportunity_id: number;
+  message: string;
+  item?: SavedFundingItem | null;
 }
 
 export interface FundingOpportunityCreatePayload {

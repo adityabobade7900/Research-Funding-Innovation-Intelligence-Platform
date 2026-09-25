@@ -11,6 +11,10 @@ from app.schemas.technology_intelligence import (
     TechnologyCoverageResponse,
     WhitespaceDiscoveryResponse,
     TechnologyIntelligenceSummary,
+    TechnologyMaturityResponse,
+    AdoptionTrackingResponse,
+    EmergingTechnologyResponse,
+    CompetitiveTechnologyResponse,
 )
 from app.services.technology_intelligence_service import TechnologyIntelligenceService
 from app.services.profile_service import ProfileService
@@ -171,4 +175,117 @@ async def detect_potential_whitespaces(
         success=True,
         data=result,
         message="Potential patent whitespaces detected successfully."
+    )
+
+
+@router.get("/maturity", response_model=ApiResponse[TechnologyMaturityResponse], status_code=status.HTTP_200_OK)
+async def get_technology_maturity(
+    start_year: Optional[int] = Query(None, description="Start year filter"),
+    end_year: Optional[int] = Query(None, description="End year filter"),
+    domain: Optional[str] = Query(None, description="Filter by technology domain"),
+    my_profile_only: bool = Query(False, description="Scope to authenticated user's portfolio"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Evaluates technology maturity across 6 mentor-defined indicators:
+    Research Growth (25%), Patent Growth (25%), Research Activity (15%), Patent Activity (15%),
+    Organization Participation (10%), and Technology/Application Diversity (10%).
+    Returns stage classification (EMERGING, DEVELOPING, MATURE, DECLINING) and explainable justification.
+    """
+    profile_id = await _resolve_profile_id(my_profile_only, current_user, db)
+    result = await TechnologyIntelligenceService.get_technology_maturity(
+        db=db,
+        start_year=start_year,
+        end_year=end_year,
+        domain=domain,
+        profile_id=profile_id,
+    )
+    return ApiResponse(
+        success=True,
+        data=result,
+        message="Technology maturity intelligence retrieved successfully."
+    )
+
+
+@router.get("/adoption", response_model=ApiResponse[AdoptionTrackingResponse], status_code=status.HTTP_200_OK)
+async def get_technology_adoption(
+    start_year: Optional[int] = Query(None, description="Start year filter"),
+    end_year: Optional[int] = Query(None, description="End year filter"),
+    domain: Optional[str] = Query(None, description="Filter by technology domain"),
+    my_profile_only: bool = Query(False, description="Scope to authenticated user's portfolio"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Tracks technology adoption status, strictly isolating commercial/market deployment telemetry
+    from scientific research and patent disclosures.
+    """
+    profile_id = await _resolve_profile_id(my_profile_only, current_user, db)
+    result = await TechnologyIntelligenceService.get_technology_adoption(
+        db=db,
+        start_year=start_year,
+        end_year=end_year,
+        domain=domain,
+        profile_id=profile_id,
+    )
+    return ApiResponse(
+        success=True,
+        data=result,
+        message="Technology adoption tracking retrieved successfully."
+    )
+
+
+@router.get("/emerging", response_model=ApiResponse[EmergingTechnologyResponse], status_code=status.HTTP_200_OK)
+async def get_emerging_technologies(
+    start_year: Optional[int] = Query(None, description="Start year filter"),
+    end_year: Optional[int] = Query(None, description="End year filter"),
+    domain: Optional[str] = Query(None, description="Filter by technology domain"),
+    my_profile_only: bool = Query(False, description="Scope to authenticated user's portfolio"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Identifies and ranks fast-moving emerging technologies driven by publication acceleration,
+    patent velocity, and organizational momentum.
+    """
+    profile_id = await _resolve_profile_id(my_profile_only, current_user, db)
+    result = await TechnologyIntelligenceService.get_emerging_technologies(
+        db=db,
+        start_year=start_year,
+        end_year=end_year,
+        domain=domain,
+        profile_id=profile_id,
+    )
+    return ApiResponse(
+        success=True,
+        data=result,
+        message="Emerging technology candidates retrieved successfully."
+    )
+
+
+@router.get("/competitive", response_model=ApiResponse[CompetitiveTechnologyResponse], status_code=status.HTTP_200_OK)
+async def get_competitive_technology_monitoring(
+    start_year: Optional[int] = Query(None, description="Start year filter"),
+    end_year: Optional[int] = Query(None, description="End year filter"),
+    domain: Optional[str] = Query(None, description="Filter by technology domain"),
+    my_profile_only: bool = Query(False, description="Scope to authenticated user's portfolio"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Monitors competitive concentration (HHI), top assignees, and jurisdiction coverage per technology domain.
+    """
+    profile_id = await _resolve_profile_id(my_profile_only, current_user, db)
+    result = await TechnologyIntelligenceService.get_competitive_technology_monitoring(
+        db=db,
+        start_year=start_year,
+        end_year=end_year,
+        domain=domain,
+        profile_id=profile_id,
+    )
+    return ApiResponse(
+        success=True,
+        data=result,
+        message="Competitive technology monitoring retrieved successfully."
     )

@@ -327,10 +327,16 @@ async def test_eligibility_insufficient_data_and_mismatch(client: AsyncClient, t
     assert res1["eligibility_status"] == "INSUFFICIENT_DATA"
     assert len(res1["missing_information"]) > 0
 
-    # 2. Setup researcher in mismatched domain (Quantum Technologies)
+    # 2. Ingest mock opportunities to populate standard domains (Quantum, Clean Energy, Biotech)
+    await client.post(
+        "/api/v1/funding/ingest",
+        json={"provider": "mock", "query": "Quantum"},
+        headers=headers
+    )
+
     domains_resp = await client.get("/api/v1/profile/domains", headers=headers)
     domains = domains_resp.json()["data"]
-    quantum_domain = next((d for d in domains if "Quantum" in d["name"]), domains[0])
+    quantum_domain = next(d for d in domains if "Quantum" in d["name"])
 
     await client.put(
         "/api/v1/profile/me",
@@ -347,7 +353,6 @@ async def test_eligibility_insufficient_data_and_mismatch(client: AsyncClient, t
     check2 = await client.get(f"/api/v1/funding/{opp_id}/eligibility", headers=headers)
     assert check2.status_code == 200
     res2 = check2.json()["data"]
-    print("\nRES2 DEBUG:", res2)
     assert res2["eligible"] is False
     assert res2["eligibility_status"] == "INELIGIBLE"
     assert any("mismatch" in fc.lower() for fc in res2["failed_criteria"])

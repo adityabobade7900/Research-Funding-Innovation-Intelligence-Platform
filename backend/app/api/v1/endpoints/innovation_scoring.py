@@ -134,6 +134,8 @@ async def get_innovation_evidence(
                 "score": v.score,
                 "weight": v.weight,
                 "confidence": v.confidence,
+                "data_status": v.data_status,
+                "normalization_method": v.normalization_method,
                 "evidence_points": v.evidence,
                 "contributing_signals": v.contributing_signals,
             }

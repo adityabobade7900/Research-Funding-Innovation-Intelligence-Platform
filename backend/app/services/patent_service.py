@@ -315,3 +315,72 @@ class PatentService:
         )
         await db.flush()
         return new_pat
+
+    @staticmethod
+    async def bookmark_patent(
+        patent_id: int,
+        user_id: int,
+        db: AsyncSession
+    ) -> bool:
+        """Links an existing patent to the requesting user's researcher profile."""
+        patent = await PatentService.get_patent(patent_id=patent_id, db=db)
+        profile = await ProfileService.get_or_create_profile(user_id=user_id, db=db)
+
+        # Check existing linkage
+        assoc_res = await db.execute(
+            select(profile_patents).where(
+                and_(
+                    profile_patents.c.profile_id == profile.id,
+                    profile_patents.c.patent_id == patent.id
+                )
+            )
+        )
+        if not assoc_res.first():
+            await db.execute(
+                profile_patents.insert().values(
+                    profile_id=profile.id,
+                    patent_id=patent.id,
+                    created_at=datetime.now(timezone.utc)
+                )
+            )
+            await db.flush()
+        return True
+
+    @staticmethod
+    async def remove_bookmark(
+        patent_id: int,
+        user_id: int,
+        db: AsyncSession
+    ) -> bool:
+        """Removes patent linkage from the requesting user's researcher profile."""
+        patent = await PatentService.get_patent(patent_id=patent_id, db=db)
+        profile = await ProfileService.get_or_create_profile(user_id=user_id, db=db)
+
+        await db.execute(
+            profile_patents.delete().where(
+                and_(
+                    profile_patents.c.profile_id == profile.id,
+                    profile_patents.c.patent_id == patent.id
+                )
+            )
+        )
+        await db.flush()
+        return True
+
+    @staticmethod
+    async def is_patent_bookmarked(
+        patent_id: int,
+        user_id: int,
+        db: AsyncSession
+    ) -> bool:
+        """Checks if a patent is linked to the user's profile."""
+        profile = await ProfileService.get_or_create_profile(user_id=user_id, db=db)
+        assoc_res = await db.execute(
+            select(profile_patents).where(
+                and_(
+                    profile_patents.c.profile_id == profile.id,
+                    profile_patents.c.patent_id == patent_id
+                )
+            )
+        )
+        return assoc_res.first() is not None

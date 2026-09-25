@@ -5,6 +5,8 @@ export interface PillarScoreItem {
   weighted_score: number;
   is_proxy: boolean;
   confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  data_status: 'AVAILABLE' | 'INSUFFICIENT_DATA' | 'DATA_UNAVAILABLE';
+  normalization_method: string;
   contributing_signals: Record<string, any>;
   evidence: string[];
   methodology_notes: string;

@@ -8,11 +8,13 @@ import {
   FundingOpportunityCreatePayload,
   EligibilityEvaluationResult,
   FundingRecommendationItem,
-  FundingRecommendationResponse
+  FundingRecommendationResponse,
+  SavedFundingItem,
+  SavedFundingListResponse,
 } from '@/types/funding';
 
 export default function FundingPage() {
-  const [activeView, setActiveView] = useState<'explore' | 'recommendations'>('explore');
+  const [activeView, setActiveView] = useState<'explore' | 'recommendations' | 'watchlist'>('explore');
 
   // Opportunities List State
   const [opportunities, setOpportunities] = useState<FundingOpportunity[]>([]);
@@ -33,8 +35,14 @@ export default function FundingPage() {
   const [recDomain, setRecDomain] = useState('');
   const [recType, setRecType] = useState('');
 
+  // Watchlist State
+  const [savedItems, setSavedItems] = useState<SavedFundingItem[]>([]);
+  const [savedTotal, setSavedTotal] = useState(0);
+  const [savedLoading, setSavedLoading] = useState(false);
+
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedOppDetails, setSelectedOppDetails] = useState<FundingOpportunity | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -45,7 +53,7 @@ export default function FundingPage() {
   const [eligibilityLoading, setEligibilityLoading] = useState(false);
   const [eligibilityError, setEligibilityError] = useState<string | null>(null);
 
-  // Form state
+  // Form state for Manual Indexing
   const [createForm, setCreateForm] = useState<FundingOpportunityCreatePayload>({
     title: '',
     funding_agency: '',
@@ -67,6 +75,7 @@ export default function FundingPage() {
 
   const [keywordInput, setKeywordInput] = useState('');
 
+  // Fetch Opportunities
   const fetchOpportunities = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -88,6 +97,7 @@ export default function FundingPage() {
     }
   }, [searchQuery, selectedAgency, selectedDomain, selectedType, selectedStatus]);
 
+  // Fetch Recommendations
   const fetchRecommendations = useCallback(async () => {
     setRecLoading(true);
     setErrorMsg(null);
@@ -111,16 +121,73 @@ export default function FundingPage() {
     }
   }, [recMinScore, recDomain, recType]);
 
+  // Fetch Saved Watchlist
+  const fetchSavedOpportunities = useCallback(async () => {
+    setSavedLoading(true);
+    try {
+      const res = await api.get<{ data: SavedFundingListResponse }>('/funding/saved');
+      setSavedItems(res.data.data.items || []);
+      setSavedTotal(res.data.data.total || 0);
+    } catch {
+      // Ignored for unauthenticated or first load
+    } finally {
+      setSavedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSavedOpportunities();
+  }, [fetchSavedOpportunities]);
+
   useEffect(() => {
     if (activeView === 'explore') {
       const timer = setTimeout(() => {
         fetchOpportunities();
       }, 250);
       return () => clearTimeout(timer);
-    } else {
+    } else if (activeView === 'recommendations') {
       fetchRecommendations();
+    } else if (activeView === 'watchlist') {
+      fetchSavedOpportunities();
     }
-  }, [activeView, fetchOpportunities, fetchRecommendations]);
+  }, [activeView, fetchOpportunities, fetchRecommendations, fetchSavedOpportunities]);
+
+  // Bookmark / Watchlist Toggle
+  const handleToggleSave = async (opp: FundingOpportunity) => {
+    const isCurrentlySaved = Boolean(opp.is_saved);
+
+    // Optimistic UI state update across all views
+    setOpportunities((prev) =>
+      prev.map((o) => (o.id === opp.id ? { ...o, is_saved: !isCurrentlySaved } : o))
+    );
+    setRecommendations((prev) =>
+      prev.map((r) =>
+        r.opportunity.id === opp.id
+          ? { ...r, opportunity: { ...r.opportunity, is_saved: !isCurrentlySaved } }
+          : r
+      )
+    );
+    if (selectedOppDetails && selectedOppDetails.id === opp.id) {
+      setSelectedOppDetails({ ...selectedOppDetails, is_saved: !isCurrentlySaved });
+    }
+
+    try {
+      if (isCurrentlySaved) {
+        await api.delete(`/funding/${opp.id}/save`);
+        setSuccessMsg(`Opportunity #${opp.id} removed from your saved watchlist`);
+      } else {
+        await api.post(`/funding/${opp.id}/save`);
+        setSuccessMsg(`Opportunity #${opp.id} bookmarked to your saved watchlist`);
+      }
+      fetchSavedOpportunities();
+    } catch (err: any) {
+      // Revert optimistic update on failure
+      setOpportunities((prev) =>
+        prev.map((o) => (o.id === opp.id ? { ...o, is_saved: isCurrentlySaved } : o))
+      );
+      setErrorMsg(err.response?.data?.detail?.message || 'Failed to update saved watchlist');
+    }
+  };
 
   const handleCheckEligibility = async (opp: FundingOpportunity) => {
     setSelectedOppForEligibility(opp);
@@ -142,13 +209,8 @@ export default function FundingPage() {
     setModalLoading(true);
     setErrorMsg(null);
     try {
-      const payload = {
-        ...createForm,
-        funding_amount: createForm.funding_amount ? Number(createForm.funding_amount) : undefined,
-        application_deadline: createForm.application_deadline ? new Date(createForm.application_deadline).toISOString() : undefined,
-      };
-      await api.post('/funding', payload);
-      setSuccessMsg('Funding opportunity indexed successfully!');
+      await api.post('/funding', createForm);
+      setSuccessMsg('Funding opportunity indexed successfully');
       setShowCreateModal(false);
       setCreateForm({
         title: '',
@@ -170,17 +232,18 @@ export default function FundingPage() {
       });
       fetchOpportunities();
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.detail?.message || 'Failed to create funding opportunity');
+      setErrorMsg(err.response?.data?.detail?.message || 'Failed to index opportunity');
     } finally {
       setModalLoading(false);
     }
   };
 
   const handleAddKeyword = () => {
-    if (keywordInput.trim() && !createForm.keywords?.includes(keywordInput.trim())) {
+    const clean = keywordInput.trim();
+    if (clean && !createForm.keywords?.includes(clean)) {
       setCreateForm({
         ...createForm,
-        keywords: [...(createForm.keywords || []), keywordInput.trim()]
+        keywords: [...(createForm.keywords || []), clean]
       });
       setKeywordInput('');
     }
@@ -189,12 +252,12 @@ export default function FundingPage() {
   const handleRemoveKeyword = (kw: string) => {
     setCreateForm({
       ...createForm,
-      keywords: (createForm.keywords || []).filter(k => k !== kw)
+      keywords: createForm.keywords?.filter((k) => k !== kw) || []
     });
   };
 
   const formatCurrency = (amount: number | null, currency: string) => {
-    if (!amount) return 'Undisclosed';
+    if (!amount) return 'Amount Unspecified';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency || 'USD',
@@ -221,6 +284,49 @@ export default function FundingPage() {
     }
   };
 
+  const getDeadlineUrgencyBadge = (opp: FundingOpportunity) => {
+    const urgency = opp.deadline_urgency || (opp.application_deadline ? 'NORMAL' : 'ROLLING');
+    const days = opp.days_remaining;
+
+    switch (urgency) {
+      case 'EXPIRED':
+        return (
+          <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+            Expired ({days !== null && days !== undefined ? `${Math.abs(days)}d ago` : 'Closed'})
+          </span>
+        );
+      case 'CRITICAL':
+        return (
+          <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+            Critical: {days !== null && days !== undefined ? `${days}d remaining` : 'Closing Soon'}
+          </span>
+        );
+      case 'URGENT':
+        return (
+          <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            Urgent: {days !== null && days !== undefined ? `${days}d left` : '< 30d'}
+          </span>
+        );
+      case 'ROLLING':
+        return (
+          <span className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            Rolling Deadline
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            {days !== null && days !== undefined ? `${days} days left` : 'Open'}
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -228,13 +334,13 @@ export default function FundingPage() {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Deterministic Matching &amp; Recommendations
+              Module 4 • Funding Intelligence
             </span>
-            <span className="text-xs text-slate-400">Total Open RFPs: {total}</span>
+            <span className="text-xs text-slate-400">Total Opportunities: {total}</span>
           </div>
-          <h1 className="text-2xl font-bold text-white mt-1">Research Funding &amp; Intelligence</h1>
+          <h1 className="text-2xl font-bold text-white mt-1">Research Funding &amp; Opportunity Intelligence</h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Discover grants, fellowships, and contracts across federal and international agencies with explainable recommendations.
+            Discover grants, evaluate eligibility, track deadlines, and receive profile-tailored funding recommendations.
           </p>
         </div>
 
@@ -279,6 +385,20 @@ export default function FundingPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           Personalized Recommendations {recTotal > 0 && `(${recTotal})`}
+        </button>
+
+        <button
+          onClick={() => setActiveView('watchlist')}
+          className={`px-4 py-2 text-sm font-medium rounded-xl transition flex items-center gap-2 ${
+            activeView === 'watchlist'
+              ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+          </svg>
+          Saved Watchlist ({savedTotal})
         </button>
       </div>
 
@@ -325,7 +445,7 @@ export default function FundingPage() {
                 <option value="National Institutes of Health">National Institutes of Health (NIH)</option>
                 <option value="Department of Energy">Department of Energy (DOE)</option>
                 <option value="DARPA">DARPA</option>
-                <option value="Horizon Europe">Horizon Europe</option>
+                <option value="European Commission">European Commission (Horizon Europe)</option>
               </select>
 
               <select
@@ -423,9 +543,13 @@ export default function FundingPage() {
                       }`}>
                         {opp.status}
                       </span>
+                      {getDeadlineUrgencyBadge(opp)}
                     </div>
 
-                    <h3 className="text-base font-bold text-white hover:text-indigo-300 transition">
+                    <h3
+                      onClick={() => setSelectedOppDetails(opp)}
+                      className="text-base font-bold text-white hover:text-indigo-300 transition cursor-pointer"
+                    >
                       {opp.title}
                     </h3>
 
@@ -467,6 +591,28 @@ export default function FundingPage() {
                     </div>
 
                     <div className="flex items-center gap-2 mt-2">
+                      {/* Save / Watchlist Bookmark Button */}
+                      <button
+                        onClick={() => handleToggleSave(opp)}
+                        className={`p-2 rounded-xl border text-xs transition flex items-center justify-center ${
+                          opp.is_saved
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                            : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-amber-300 hover:bg-slate-800'
+                        }`}
+                        title={opp.is_saved ? 'Remove from Watchlist' : 'Save to Watchlist'}
+                      >
+                        <svg className="w-4 h-4" fill={opp.is_saved ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedOppDetails(opp)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition"
+                      >
+                        Details
+                      </button>
+
                       <button
                         onClick={() => handleCheckEligibility(opp)}
                         className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 rounded-xl text-xs font-semibold transition flex items-center gap-1"
@@ -474,22 +620,8 @@ export default function FundingPage() {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Check My Eligibility
+                        Eligibility
                       </button>
-
-                      {opp.url && (
-                        <a
-                          href={opp.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition"
-                          title="View Official RFP"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -552,7 +684,7 @@ export default function FundingPage() {
             <div className="flex items-start gap-2.5 text-xs text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
               <span className="text-indigo-400 text-base">ℹ</span>
               <p>
-                Recommendations are generated deterministically using your research domain taxonomy, keyword density, institutional eligibility, and proposal preparation deadlines. Strictly ineligible opportunities are automatically excluded.
+                Recommendations are generated deterministically using your research domain taxonomy, keyword density, institutional eligibility, publication track records, and proposal preparation deadlines. Strictly ineligible opportunities are automatically excluded.
               </p>
             </div>
           </div>
@@ -616,9 +748,13 @@ export default function FundingPage() {
                           )}
 
                           {getStatusBadge(rec.eligibility_status)}
+                          {getDeadlineUrgencyBadge(opp)}
                         </div>
 
-                        <h3 className="text-lg font-bold text-white hover:text-indigo-300 transition">
+                        <h3
+                          onClick={() => setSelectedOppDetails(opp)}
+                          className="text-lg font-bold text-white hover:text-indigo-300 transition cursor-pointer"
+                        >
                           {opp.title}
                         </h3>
 
@@ -696,28 +832,35 @@ export default function FundingPage() {
 
                         <div className="flex items-center gap-2 w-full lg:w-auto pt-1">
                           <button
+                            onClick={() => handleToggleSave(opp)}
+                            className={`p-2 rounded-xl border text-xs transition flex items-center justify-center ${
+                              opp.is_saved
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300'
+                            }`}
+                            title={opp.is_saved ? 'Remove from Watchlist' : 'Save to Watchlist'}
+                          >
+                            <svg className="w-4 h-4" fill={opp.is_saved ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </button>
+
+                          <button
+                            onClick={() => setSelectedOppDetails(opp)}
+                            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition border border-slate-700"
+                          >
+                            Details
+                          </button>
+
+                          <button
                             onClick={() => handleCheckEligibility(opp)}
                             className="flex-1 lg:flex-none px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-md shadow-indigo-900/30 flex items-center justify-center gap-1.5"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            Deep Eligibility Audit
+                            Eligibility
                           </button>
-
-                          {opp.url && (
-                            <a
-                              href={opp.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs transition"
-                              title="Open RFP Portal"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                            </a>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -726,6 +869,345 @@ export default function FundingPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          VIEW 3: SAVED FUNDING WATCHLIST
+          ========================================================================= */}
+      {activeView === 'watchlist' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900/80 border border-amber-900/40 p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  Persistent Watchlist
+                </span>
+                <span className="text-xs text-slate-400">{savedTotal} saved opportunities</span>
+              </div>
+              <h2 className="text-lg font-bold text-white mt-1">Bookmarked Research Funding Opportunities</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Track upcoming deadlines, proposal milestones, and review eligibility for saved opportunities.
+              </p>
+            </div>
+            <button
+              onClick={fetchSavedOpportunities}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition border border-slate-700 flex items-center gap-2 self-start md:self-auto"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Watchlist
+            </button>
+          </div>
+
+          {savedLoading ? (
+            <div className="space-y-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="animate-pulse bg-slate-900/60 border border-slate-800 p-6 rounded-2xl h-40" />
+              ))}
+            </div>
+          ) : savedItems.length === 0 ? (
+            <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-8">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3 border border-amber-500/20">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold text-slate-200">Your Watchlist is empty</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
+                Explore available funding opportunities or review recommendations, then click the bookmark icon to save opportunities here.
+              </p>
+              <button
+                onClick={() => setActiveView('explore')}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition"
+              >
+                Browse Opportunities
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {savedItems.map((saved) => {
+                const opp = saved.opportunity;
+                return (
+                  <div
+                    key={saved.id}
+                    className="bg-slate-900/80 border border-slate-800 hover:border-amber-500/40 p-5 rounded-2xl transition duration-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          {opp.funding_agency}
+                        </span>
+                        {opp.funding_program && (
+                          <span className="text-xs text-slate-400 font-medium">
+                            • {opp.funding_program}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded">
+                          Saved: {new Date(saved.created_at).toLocaleDateString()}
+                        </span>
+                        {getDeadlineUrgencyBadge(opp)}
+                      </div>
+
+                      <h3
+                        onClick={() => setSelectedOppDetails(opp)}
+                        className="text-base font-bold text-white hover:text-amber-300 transition cursor-pointer"
+                      >
+                        {opp.title}
+                      </h3>
+
+                      {opp.description && (
+                        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                          {opp.description}
+                        </p>
+                      )}
+
+                      {saved.notes && (
+                        <div className="p-2.5 bg-amber-950/20 border border-amber-900/40 rounded-xl text-xs text-amber-200 flex items-start gap-2">
+                          <span className="text-amber-400 font-bold">📝</span>
+                          <span>{saved.notes}</span>
+                        </div>
+                      )}
+
+                      {/* Domains & Keywords */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {opp.domains?.map((d) => (
+                          <span key={d.id} className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-950/60 text-indigo-300 border border-indigo-800/50">
+                            {d.name}
+                          </span>
+                        ))}
+                        {opp.keywords?.map((k) => (
+                          <span key={k.id} className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400">
+                            #{k.keyword}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Amount & Actions */}
+                    <div className="md:text-right border-t md:border-t-0 md:border-l border-slate-800/80 pt-3 md:pt-0 md:pl-6 flex flex-col justify-between items-start md:items-end min-w-[220px] gap-2">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Funding Amount</span>
+                        <span className="text-lg font-bold text-emerald-400">
+                          {formatCurrency(opp.funding_amount, opp.currency)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Deadline:</span>
+                        <span className="text-xs font-semibold text-slate-200">
+                          {formatDeadline(opp.application_deadline)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => setSelectedOppDetails(opp)}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition border border-slate-700"
+                        >
+                          Details
+                        </button>
+
+                        <button
+                          onClick={() => handleCheckEligibility(opp)}
+                          className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 rounded-xl text-xs font-semibold transition"
+                        >
+                          Eligibility
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleSave(opp)}
+                          className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-semibold transition"
+                          title="Remove from Watchlist"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          FULL FUNDING OPPORTUNITY DETAILS MODAL (ALL 14 REQUIRED FIELDS)
+          ========================================================================= */}
+      {selectedOppDetails && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    {selectedOppDetails.funding_agency}
+                  </span>
+                  {selectedOppDetails.opportunity_type && (
+                    <span className="px-2 py-0.5 rounded-md text-xs bg-indigo-950 text-indigo-300 border border-indigo-800/40">
+                      {selectedOppDetails.opportunity_type}
+                    </span>
+                  )}
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    {selectedOppDetails.status}
+                  </span>
+                  {getDeadlineUrgencyBadge(selectedOppDetails)}
+                </div>
+                <h2 className="text-xl font-bold text-white leading-snug">
+                  {selectedOppDetails.title}
+                </h2>
+                {selectedOppDetails.funding_program && (
+                  <p className="text-xs text-slate-400">
+                    Program: <span className="text-slate-200 font-medium">{selectedOppDetails.funding_program}</span>
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedOppDetails(null)}
+                className="text-slate-400 hover:text-slate-200 text-lg font-bold p-1 rounded-lg hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Core Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-950/80 border border-slate-800/80 rounded-xl">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Funding Amount</span>
+                <span className="text-base font-bold text-emerald-400">
+                  {formatCurrency(selectedOppDetails.funding_amount, selectedOppDetails.currency)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Deadline</span>
+                <span className="text-sm font-semibold text-slate-200">
+                  {formatDeadline(selectedOppDetails.application_deadline)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Source</span>
+                <span className="text-sm font-semibold text-slate-300 uppercase">
+                  {selectedOppDetails.source || 'Manual'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 block">External ID</span>
+                <span className="text-xs font-mono text-indigo-300">
+                  {selectedOppDetails.external_id || 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            {/* Description */}
+            {selectedOppDetails.description && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Description &amp; Objectives</span>
+                <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/50 p-3.5 rounded-xl border border-slate-800/60">
+                  {selectedOppDetails.description}
+                </p>
+              </div>
+            )}
+
+            {/* Eligibility & Institutions Section */}
+            <div className="space-y-3">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Eligibility Criteria</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-950/50 border border-slate-800/60 rounded-xl space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Eligible Institutions</span>
+                  <span className="text-xs text-slate-200 font-medium">
+                    {selectedOppDetails.eligible_institutions || 'Open to all accredited research institutions'}
+                  </span>
+                </div>
+                <div className="p-3 bg-slate-950/50 border border-slate-800/60 rounded-xl space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Geographic Restrictions</span>
+                  <span className="text-xs text-slate-200 font-medium">
+                    {selectedOppDetails.geographic_restrictions || 'Global / Unrestricted'}
+                  </span>
+                </div>
+              </div>
+              {selectedOppDetails.eligibility_summary && (
+                <div className="p-3 bg-slate-950/50 border border-slate-800/60 rounded-xl space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Eligibility Summary</span>
+                  <p className="text-xs text-slate-300">{selectedOppDetails.eligibility_summary}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Supported Domains & Keywords */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Research Domains &amp; Thematic Keywords</span>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedOppDetails.domains?.map((d) => (
+                  <span key={d.id} className="text-xs px-2.5 py-1 rounded-lg bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-medium">
+                    {d.name}
+                  </span>
+                ))}
+                {selectedOppDetails.keywords?.map((k) => (
+                  <span key={k.id} className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300">
+                    #{k.keyword}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleToggleSave(selectedOppDetails)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition border flex items-center gap-1.5 ${
+                    selectedOppDetails.is_saved
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-amber-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill={selectedOppDetails.is_saved ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  {selectedOppDetails.is_saved ? 'Saved in Watchlist' : 'Add to Watchlist'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    const opp = selectedOppDetails;
+                    setSelectedOppDetails(null);
+                    handleCheckEligibility(opp);
+                  }}
+                  className="px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Check Eligibility
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedOppDetails.url && (
+                  <a
+                    href={selectedOppDetails.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-md shadow-indigo-900/30"
+                  >
+                    <span>Official Portal</span>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                )}
+                <button
+                  onClick={() => setSelectedOppDetails(null)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-xl text-xs font-medium transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -840,7 +1322,7 @@ export default function FundingPage() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
-                      Warnings & Missing Profile Information
+                      Warnings &amp; Missing Profile Information
                     </span>
                     <div className="space-y-1 bg-amber-950/10 p-3 rounded-xl border border-amber-500/20">
                       {eligibilityResult.warnings.map((w, idx) => (

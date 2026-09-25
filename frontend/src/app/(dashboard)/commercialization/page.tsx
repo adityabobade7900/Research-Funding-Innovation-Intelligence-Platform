@@ -5,7 +5,6 @@ import { api } from '@/lib/api';
 import {
   CommercializationResponse,
   CommercializationSummary,
-  CommercializationRecommendationItem,
 } from '@/types/commercialization';
 
 export default function CommercializationPage() {
@@ -15,7 +14,7 @@ export default function CommercializationPage() {
   const [summaryData, setSummaryData] = useState<CommercializationSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeRecType, setActiveRecType] = useState<string | null>(null);
+  const [activePathwayTab, setActivePathwayTab] = useState<'PRODUCTIZATION' | 'LICENSING' | 'STARTUP_CREATION' | 'INDUSTRY_PARTNERSHIP'>('PRODUCTIZATION');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -37,8 +36,17 @@ export default function CommercializationPage() {
 
       setCommData(commRes.data.data);
       setSummaryData(sumRes.data.data);
-      if (commRes.data.data.recommendations.length > 0) {
-        setActiveRecType(commRes.data.data.primary_recommendation.recommendation_type);
+
+      // Default active pathway to primary pathway if mapped
+      const prim = commRes.data.data.readiness.primary_pathway;
+      if (prim === 'LICENSING') {
+        setActivePathwayTab('LICENSING');
+      } else if (prim === 'STARTUP_CREATION' || prim === 'STARTUP_SPINOUT') {
+        setActivePathwayTab('STARTUP_CREATION');
+      } else if (prim === 'INDUSTRY_PARTNERSHIP' || prim === 'INDUSTRY_COLLABORATION') {
+        setActivePathwayTab('INDUSTRY_PARTNERSHIP');
+      } else {
+        setActivePathwayTab('PRODUCTIZATION');
       }
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail?.message || 'Failed to load commercialization intelligence');
@@ -51,9 +59,26 @@ export default function CommercializationPage() {
     fetchData();
   }, [fetchData]);
 
-  const selectedRec =
-    commData?.recommendations.find((r) => r.recommendation_type === activeRecType) ||
-    commData?.primary_recommendation;
+  const defaultDomains = [
+    'Quantum Computing',
+    'Artificial Intelligence',
+    'Energy Storage',
+    'Biotechnology',
+    'Synthetic Biology',
+    'Photonics',
+    'Robotics',
+    'Space Propulsion',
+  ];
+
+  const allDomains = Array.from(
+    new Set([
+      ...defaultDomains,
+      ...(summaryData?.top_commercial_prospects.map((d) => d.domain) || []),
+    ])
+  );
+
+  const pathways = commData?.pathways;
+  const analysis = commData?.commercialization_analysis;
 
   return (
     <div className="space-y-6 pb-12">
@@ -62,17 +87,17 @@ export default function CommercializationPage() {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Commercialization & Translation Engine
+              Commercialization & Translation Intelligence
             </span>
             <span className="text-xs text-slate-400">
-              M3D Evidence-Based Translation Pathways
+              Four Canonical Pathways: Productization • Licensing • Startup Creation • Industry Partnership
             </span>
           </div>
           <h1 className="text-2xl font-bold text-white mt-1">
-            Commercialization Intelligence & Strategic Recommendations
+            Commercialization Pathways & Evidence-Based Translation
           </h1>
           <p className="text-xs text-slate-400 max-w-2xl mt-1">
-            Synthesizes TRL maturity, patent claims, market growth velocity, and active grant streams into actionable translation roadmaps (Spinout, Licensing, Industry JDA, Non-Dilutive Funding).
+            Transforms empirical evidence from Research Intelligence, Funding, Patent Landscape, Technology Intelligence, and Innovation Scoring into actionable, non-dilutive commercialization roadmaps.
           </p>
         </div>
 
@@ -95,21 +120,15 @@ export default function CommercializationPage() {
       {!myProfileOnly && (
         <div className="bg-slate-900/70 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <span className="text-xs text-slate-400 whitespace-nowrap">Focus Domain:</span>
+            <span className="text-xs text-slate-400 whitespace-nowrap">Target Domain:</span>
             <select
               value={selectedDomain}
               onChange={(e) => setSelectedDomain(e.target.value)}
               className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 w-full sm:w-64"
             >
-              <option value="Quantum Computing">Quantum Computing</option>
-              <option value="Artificial Intelligence">Artificial Intelligence</option>
-              <option value="Energy Storage">Energy Storage</option>
-              <option value="Biotechnology">Biotechnology</option>
-              <option value="Photonics">Photonics</option>
-              <option value="Robotics">Robotics</option>
-              {summaryData?.top_commercial_prospects.map((d) => (
-                <option key={d.domain} value={d.domain}>
-                  {d.domain}
+              {allDomains.map((d) => (
+                <option key={d} value={d}>
+                  {d}
                 </option>
               ))}
             </select>
@@ -130,17 +149,17 @@ export default function CommercializationPage() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl h-48" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl h-44" />
           ))}
         </div>
       ) : (
         <>
-          {/* Main KPI Strip */}
+          {/* Main KPI Strip — Multi-Module Telemetry */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Commercialization Readiness */}
-            <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-sm">
+            {/* 1. Commercialization Readiness */}
+            <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-sm relative overflow-hidden">
               <span className="text-[11px] text-slate-400 font-medium block">Commercialization Readiness</span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-4xl font-extrabold text-emerald-400">
@@ -148,169 +167,525 @@ export default function CommercializationPage() {
                 </span>
                 <span className="text-xs text-slate-500 font-medium">/ 100</span>
               </div>
-              <div className="mt-3">
-                <span className={`px-2.5 py-1 rounded text-[10px] font-bold ${
+              <div className="mt-3 flex items-center gap-1.5">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                   commData?.readiness.readiness_level === 'HIGH_COMMERCIAL_READINESS'
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                     : commData?.readiness.readiness_level === 'MODERATE_COMMERCIAL_READINESS'
-                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
                     : commData?.readiness.readiness_level === 'EARLY_DEVELOPMENT'
-                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
-                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                    ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                    : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                 }`}>
                   {commData?.readiness.readiness_level.replace(/_/g, ' ')}
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-950 border border-slate-800 text-slate-400">
+                  {commData?.readiness.data_sufficiency}
                 </span>
               </div>
             </div>
 
-            {/* Primary Suggested Pathway */}
+            {/* 2. Innovation Score & TRL (M7 Integration) */}
             <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-sm">
-              <span className="text-[11px] text-slate-400 font-medium block">Primary Translation Pathway</span>
-              <h3 className="text-base font-extrabold text-white mt-1">
-                {commData?.readiness.primary_pathway.replace(/_/g, ' ')}
-              </h3>
-              <p className="text-[10px] text-slate-400 mt-2 leading-relaxed truncate">
-                {commData?.primary_recommendation.title}
-              </p>
-              <span className="text-[10px] text-indigo-400 block mt-2">
-                Urgency / Priority: <strong className="text-slate-200">{commData?.primary_recommendation.priority}</strong>
-              </span>
-            </div>
-
-            {/* Innovation Context */}
-            <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-sm">
-              <span className="text-[11px] text-slate-400 font-medium block">M3C Innovation Context</span>
+              <span className="text-[11px] text-slate-400 font-medium block">M7 Innovation Index & TRL</span>
               <div className="flex items-center justify-between mt-1">
                 <span className="text-2xl font-bold text-white">
                   {commData?.innovation_context.innovation_score} <span className="text-xs text-slate-500">/ 100</span>
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-mono">
                   TRL {commData?.innovation_context.estimated_trl}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400 block mt-2">
-                Stage: <strong className="text-slate-300">{commData?.innovation_context.trl_stage}</strong>
+              <span className="text-[10px] text-slate-300 block mt-2 truncate">
+                Stage: <strong>{commData?.innovation_context.trl_stage}</strong>
               </span>
               <span className="text-[10px] text-slate-500 block mt-1">
                 Class: {commData?.innovation_context.overall_classification.replace(/_/g, ' ')}
               </span>
             </div>
 
-            {/* Evaluated Target */}
+            {/* 3. Adoption Level & Market Velocity (M6 Integration) */}
             <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-sm">
-              <span className="text-[11px] text-slate-400 font-medium block">Target Focus</span>
+              <span className="text-[11px] text-slate-400 font-medium block">M6 Commercial Adoption</span>
+              <div className="mt-2">
+                <span className="px-2 py-1 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 block text-center font-mono">
+                  DATA_UNAVAILABLE
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                External revenue and enterprise sales are unindexed; empirical patent momentum proxy used.
+              </p>
+            </div>
+
+            {/* 4. Target Focus & Evaluated Scope */}
+            <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-sm">
+              <span className="text-[11px] text-slate-400 font-medium block">Evaluated Target Focus</span>
               <h3 className="text-base font-bold text-white mt-1 truncate">
                 {commData?.target_name}
               </h3>
-              <span className="text-[10px] text-indigo-400 uppercase tracking-wider block mt-1">
-                Scope: {commData?.target_type}
-              </span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block mt-2 ${
-                commData?.readiness.data_sufficiency === 'SUFFICIENT'
-                  ? 'bg-emerald-500/10 text-emerald-400'
-                  : 'bg-amber-500/10 text-amber-400'
-              }`}>
-                {commData?.readiness.data_sufficiency}
-              </span>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-[10px] text-indigo-400 uppercase tracking-wider font-semibold">
+                  Scope: {commData?.target_type}
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  • Primary: <strong className="text-slate-300">{commData?.readiness.primary_pathway.replace(/_/g, ' ')}</strong>
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Primary Recommendation Spotlight Card */}
-          {selectedRec && (
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/40 p-6 rounded-2xl shadow-lg space-y-4">
+          {/* Commercialization Analysis — Problem / Application Fit */}
+          {analysis && (
+            <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                  <span className={`px-2.5 py-1 rounded text-xs font-bold ${
-                    selectedRec.priority === 'HIGH'
-                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                      : selectedRec.priority === 'MEDIUM'
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                      : 'bg-slate-800 text-slate-300'
-                  }`}>
-                    {selectedRec.priority} PRIORITY
+                <div>
+                  <span className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider block">
+                    Domain Translation Analysis
                   </span>
-                  <span className="px-2.5 py-1 rounded text-xs font-mono bg-slate-950 text-indigo-300 border border-slate-800">
-                    Pathway: {selectedRec.recommendation_type.replace(/_/g, ' ')}
-                  </span>
+                  <h3 className="text-base font-bold text-white">Problem / Application Fit Analysis</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Match Fit:</span>
-                  <span className="text-base font-bold text-emerald-400">{selectedRec.score} / 100</span>
-                  <span className="text-xs text-slate-500">({selectedRec.confidence} Confidence)</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-950 text-slate-400 border border-slate-800">
+                    Adoption: {analysis.commercial_adoption_telemetry}
+                  </span>
                 </div>
               </div>
 
-              <div>
-                <h2 className="text-lg font-bold text-white">{selectedRec.title}</h2>
-                <p className="text-xs text-slate-300 mt-1 leading-relaxed">{selectedRec.rationale}</p>
-              </div>
-
-              {/* Supporting Evidence & Required Actions Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Potential Application Areas */}
                 <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
-                  <span className="text-xs font-bold text-indigo-400 block">Supporting Analytical Evidence:</span>
-                  <ul className="space-y-1.5">
-                    {selectedRec.supporting_evidence.map((ev, idx) => (
-                      <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                  <span className="text-xs font-bold text-cyan-400 block">Identified Potential Application Areas:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {analysis.potential_application_areas.length > 0 ? (
+                      analysis.potential_application_areas.map((area, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-1 rounded-lg text-xs bg-cyan-950/40 text-cyan-300 border border-cyan-800/60"
+                        >
+                          {area}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500">No application areas substantiated by indexed records.</span>
+                    )}
+                  </div>
+
+                  <span className="text-xs font-bold text-slate-300 block pt-2">Relevant Industries:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {analysis.relevant_industries.map((ind, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 rounded text-[11px] bg-slate-900 text-slate-300 border border-slate-800"
+                      >
+                        {ind}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Analytical Synthesis & Fit */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                  <span className="text-xs font-bold text-indigo-400 block">Problem / Application Fit Rationale:</span>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {analysis.problem_application_fit}
+                  </p>
+
+                  <span className="text-xs font-bold text-slate-400 block pt-1">Analytical Telemetry Evidence:</span>
+                  <ul className="space-y-1">
+                    {analysis.supporting_evidence.map((ev, idx) => (
+                      <li key={idx} className="text-xs text-slate-400 flex items-start gap-1.5">
                         <span className="text-indigo-400">•</span>
                         <span>{ev}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-
-                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
-                  <span className="text-xs font-bold text-emerald-400 block">Required Next Actions Checklist:</span>
-                  <ul className="space-y-1.5">
-                    {selectedRec.required_next_actions.map((act, idx) => (
-                      <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
-                        <span className="text-emerald-400 font-bold">✓</span>
-                        <span>{act}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
               </div>
 
-              <p className="text-[10px] text-slate-500 italic pt-1">{selectedRec.limitations}</p>
+              {/* Data Limitations Box */}
+              <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                <span className="font-semibold text-slate-300 block">Traceability & Data Limitations:</span>
+                <ul className="list-disc list-inside space-y-0.5 text-slate-500">
+                  {analysis.data_limitations.map((lim, idx) => (
+                    <li key={idx}>{lim}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
-          {/* All Generated Commercialization Recommendations Cards */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-white">All Identified Commercialization Pathways</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {commData?.recommendations.map((rec) => (
-                <div
-                  key={rec.recommendation_type}
-                  onClick={() => setActiveRecType(rec.recommendation_type)}
-                  className={`p-4 rounded-2xl border cursor-pointer transition duration-200 ${
-                    activeRecType === rec.recommendation_type
-                      ? 'bg-indigo-950/40 border-indigo-500 shadow-md'
-                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+          {/* ========================================================= */}
+          {/* THE FOUR CANONICAL COMMERCIALIZATION PATHWAYS              */}
+          {/* ========================================================= */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider block">
+                  Authoritative Translation Pathways
+                </span>
+                <h2 className="text-lg font-bold text-white">Commercialization Pathways</h2>
+              </div>
+              <span className="text-xs text-slate-400 font-mono">
+                Evaluated deterministically from published research, patents, and grant streams
+              </span>
+            </div>
+
+            {/* Pathway Selector Tabs */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {[
+                { key: 'PRODUCTIZATION', label: '1. Productization', icon: '🚀' },
+                { key: 'LICENSING', label: '2. Corporate Licensing', icon: '📜' },
+                { key: 'STARTUP_CREATION', label: '3. Startup Creation', icon: '💡' },
+                { key: 'INDUSTRY_PARTNERSHIP', label: '4. Industry Partnership', icon: '🤝' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActivePathwayTab(tab.key as any)}
+                  className={`p-3.5 rounded-xl border text-left transition flex items-center justify-between ${
+                    activePathwayTab === tab.key
+                      ? 'bg-indigo-950/70 border-indigo-400 text-white shadow-lg ring-1 ring-indigo-400/40'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      rec.priority === 'HIGH'
-                        ? 'bg-rose-500/10 text-rose-400'
-                        : 'bg-amber-500/10 text-amber-400'
-                    }`}>
-                      {rec.priority}
-                    </span>
-                    <span className="text-xs font-bold text-indigo-300">{rec.score} / 100</span>
+                  <div>
+                    <span className="text-sm block">{tab.icon} {tab.label}</span>
                   </div>
-
-                  <h4 className="text-xs font-bold text-white mt-2">{rec.title}</h4>
-                  <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{rec.rationale}</p>
-
-                  <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
-                    <span>{rec.recommendation_type.replace(/_/g, ' ')}</span>
-                    <span className="text-indigo-400 font-medium">View Details →</span>
-                  </div>
-                </div>
+                  <span className="text-xs font-mono text-indigo-300">
+                    {tab.key === 'PRODUCTIZATION'
+                      ? `${pathways?.productization.score ?? 0} pts`
+                      : tab.key === 'LICENSING'
+                      ? `${pathways?.licensing.score ?? 0} pts`
+                      : tab.key === 'STARTUP_CREATION'
+                      ? `${pathways?.startup_creation.score ?? 0} pts`
+                      : `${pathways?.industry_partnership.score ?? 0} pts`}
+                  </span>
+                </button>
               ))}
             </div>
+
+            {/* TAB CONTENT: 1. PRODUCTIZATION */}
+            {activePathwayTab === 'PRODUCTIZATION' && pathways?.productization && (
+              <div className="bg-slate-900/90 border border-indigo-500/40 p-6 rounded-2xl space-y-4 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                        PATHWAY 1: PRODUCTIZATION
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        pathways.productization.data_status === 'AVAILABLE'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {pathways.productization.data_status}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mt-1.5">{pathways.productization.product_concept}</h3>
+                    <span className="text-xs text-slate-400">Target Industry: <strong className="text-slate-300">{pathways.productization.target_industry}</strong></span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400 block">Viability Score:</span>
+                    <span className="text-2xl font-bold text-emerald-400">{pathways.productization.score} / 100</span>
+                    <span className="text-[10px] text-slate-500 block">({pathways.productization.confidence} Confidence)</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-indigo-400 block">Problem Addressed:</span>
+                    <p className="text-xs text-slate-300 leading-relaxed">{pathways.productization.problem_addressed}</p>
+
+                    <span className="text-xs font-bold text-slate-400 block pt-1">Primary Deployment Use Case:</span>
+                    <p className="text-xs text-slate-300">{pathways.productization.main_use_case}</p>
+
+                    <span className="text-xs font-bold text-slate-400 block pt-1">Technology Basis:</span>
+                    <p className="text-xs text-slate-400 font-mono text-[11px]">{pathways.productization.technology_basis}</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-emerald-400 block">Required Next Steps:</span>
+                    <ul className="space-y-1.5">
+                      {pathways.productization.required_next_steps.map((step, idx) => (
+                        <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <span className="text-xs font-bold text-slate-400 block pt-1">Supporting Analytical Evidence:</span>
+                    <ul className="space-y-1">
+                      {pathways.productization.supporting_evidence.map((ev, idx) => (
+                        <li key={idx} className="text-xs text-slate-400 flex items-start gap-1.5">
+                          <span className="text-indigo-400">•</span>
+                          <span>{ev}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-500 italic pt-1">{pathways.productization.limitations}</p>
+              </div>
+            )}
+
+            {/* TAB CONTENT: 2. LICENSING */}
+            {activePathwayTab === 'LICENSING' && pathways?.licensing && (
+              <div className="bg-slate-900/90 border border-indigo-500/40 p-6 rounded-2xl space-y-4 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                        PATHWAY 2: CORPORATE IP LICENSING
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        pathways.licensing.data_status === 'AVAILABLE'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {pathways.licensing.data_status}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mt-1.5">{pathways.licensing.title}</h3>
+                    <p className="text-xs text-slate-300 mt-1">{pathways.licensing.rationale}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400 block">Licensing Viability:</span>
+                    <span className="text-2xl font-bold text-emerald-400">{pathways.licensing.score} / 100</span>
+                    <span className="text-[10px] text-slate-500 block">({pathways.licensing.confidence} Confidence)</span>
+                  </div>
+                </div>
+
+                {/* Potential Licensing Candidates from Module 5 Patent Assignees */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-400 block">
+                      Potential Licensing Candidates (Derived from Module 5 Patent Assignees):
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {pathways.licensing.licensing_candidates.length} Candidate(s) Identified
+                    </span>
+                  </div>
+
+                  {pathways.licensing.licensing_candidates.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {pathways.licensing.licensing_candidates.map((cand, idx) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white">{cand.organization}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-mono">
+                              {cand.patent_count} related patent(s)
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">{cand.evidence_of_relevance}</p>
+                          <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                            <span className="text-slate-500">Status: Potential licensing candidate</span>
+                            <span className="text-emerald-400">{cand.confidence} fit</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800 text-xs text-slate-500">
+                      No corporate patent assignees currently indexed in this technology domain to qualify as licensing candidates.
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-slate-400 block">IP Defensibility Basis:</span>
+                    <p className="text-xs text-slate-300">{pathways.licensing.ip_ownership_basis}</p>
+
+                    <span className="text-xs font-bold text-slate-400 block pt-1">Supporting Analytical Evidence:</span>
+                    <ul className="space-y-1">
+                      {pathways.licensing.supporting_evidence.map((ev, idx) => (
+                        <li key={idx} className="text-xs text-slate-400 flex items-start gap-1.5">
+                          <span className="text-indigo-400">•</span>
+                          <span>{ev}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-emerald-400 block">Prescribed Next Licensing Actions:</span>
+                    <ul className="space-y-1.5">
+                      {pathways.licensing.required_next_steps.map((step, idx) => (
+                        <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-500 italic pt-1">{pathways.licensing.limitations}</p>
+              </div>
+            )}
+
+            {/* TAB CONTENT: 3. STARTUP CREATION */}
+            {activePathwayTab === 'STARTUP_CREATION' && pathways?.startup_creation && (
+              <div className="bg-slate-900/90 border border-indigo-500/40 p-6 rounded-2xl space-y-4 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                        PATHWAY 3: STARTUP CREATION
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        pathways.startup_creation.data_status === 'AVAILABLE'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {pathways.startup_creation.data_status}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mt-1.5">{pathways.startup_creation.startup_concept}</h3>
+                    <p className="text-xs text-slate-300 mt-1">{pathways.startup_creation.proposed_solution}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400 block">Startup Fit Score:</span>
+                    <span className="text-2xl font-bold text-emerald-400">{pathways.startup_creation.score} / 100</span>
+                    <span className="text-[10px] text-slate-500 block">({pathways.startup_creation.confidence} Confidence)</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-indigo-400 block">Unaddressed Market Problem:</span>
+                    <p className="text-xs text-slate-300">{pathways.startup_creation.problem}</p>
+
+                    <span className="text-xs font-bold text-slate-400 block pt-1">Target Customer Segment:</span>
+                    <p className="text-xs text-slate-300">{pathways.startup_creation.target_customers}</p>
+
+                    <span className="text-xs font-bold text-slate-400 block pt-1">Business Model Hypothesis:</span>
+                    <p className="text-xs text-slate-300 leading-relaxed">{pathways.startup_creation.business_model_hypothesis}</p>
+
+                    <span className="text-xs font-bold text-slate-400 block pt-1">Intellectual Property & Defensibility:</span>
+                    <p className="text-xs text-slate-400 font-mono text-[11px]">{pathways.startup_creation.patent_ip_situation}</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-cyan-400 block">Matching Non-Dilutive Translational Grants:</span>
+                    <ul className="space-y-1">
+                      {pathways.startup_creation.relevant_funding.map((f, idx) => (
+                        <li key={idx} className="text-xs text-slate-300 flex items-start gap-1.5">
+                          <span className="text-cyan-400">•</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <span className="text-xs font-bold text-emerald-400 block pt-2">Venture Formation Next Steps:</span>
+                    <ul className="space-y-1.5">
+                      {pathways.startup_creation.required_next_steps.map((step, idx) => (
+                        <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-500 italic pt-1">{pathways.startup_creation.limitations}</p>
+              </div>
+            )}
+
+            {/* TAB CONTENT: 4. INDUSTRY PARTNERSHIP */}
+            {activePathwayTab === 'INDUSTRY_PARTNERSHIP' && pathways?.industry_partnership && (
+              <div className="bg-slate-900/90 border border-indigo-500/40 p-6 rounded-2xl space-y-4 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                        PATHWAY 4: INDUSTRY PARTNERSHIP
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        pathways.industry_partnership.data_status === 'AVAILABLE'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {pathways.industry_partnership.data_status}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mt-1.5">{pathways.industry_partnership.title}</h3>
+                    <p className="text-xs text-slate-300 mt-1">{pathways.industry_partnership.rationale}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400 block">Partnership Fit Score:</span>
+                    <span className="text-2xl font-bold text-emerald-400">{pathways.industry_partnership.score} / 100</span>
+                    <span className="text-[10px] text-slate-500 block">({pathways.industry_partnership.confidence} Confidence)</span>
+                  </div>
+                </div>
+
+                {/* Potential Industry Partnership Candidates */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-400 block">
+                      Potential Industry Partnership Candidates:
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {pathways.industry_partnership.partnership_candidates.length} Candidate(s) Identified
+                    </span>
+                  </div>
+
+                  {pathways.industry_partnership.partnership_candidates.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {pathways.industry_partnership.partnership_candidates.map((cand, idx) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white">{cand.organization}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800/60 font-medium">
+                              {cand.partnership_type}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">{cand.evidence_of_relevance}</p>
+                          <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                            <span className="text-slate-500">Status: Potential candidate for evaluation</span>
+                            <span className="text-emerald-400">{cand.confidence} fit</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800 text-xs text-slate-500">
+                      No corporate partner organizations are currently indexed in this technology domain to qualify as partnership candidates.
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-slate-400 block">Supporting Analytical Evidence:</span>
+                    <ul className="space-y-1">
+                      {pathways.industry_partnership.supporting_evidence.map((ev, idx) => (
+                        <li key={idx} className="text-xs text-slate-400 flex items-start gap-1.5">
+                          <span className="text-indigo-400">•</span>
+                          <span>{ev}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-emerald-400 block">Partnership Next Steps:</span>
+                    <ul className="space-y-1.5">
+                      {pathways.industry_partnership.required_next_steps.map((step, idx) => (
+                        <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-500 italic pt-1">{pathways.industry_partnership.limitations}</p>
+              </div>
+            )}
           </div>
 
           {/* Dimensional Readiness & Integrated Funding Grid */}
@@ -356,13 +731,34 @@ export default function CommercializationPage() {
                     );
                   })}
               </div>
+
+              {/* Unmeasured Dimensions Box (Honest Telemetry) */}
+              <div className="pt-2 border-t border-slate-800">
+                <span className="text-[10px] text-slate-400 font-semibold block mb-1.5">
+                  External Governance & Feasibility Telemetry (Unmeasured):
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">Regulatory Feasibility</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      DATA_UNAVAILABLE
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">Team Capability</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      DATA_UNAVAILABLE
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Active Matching Funding Opportunities (M2 Integration) */}
+            {/* Active Matching Funding Opportunities (Module 4 Integration) */}
             <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white">Matching Translational Funding Streams</h3>
-                <span className="text-xs text-slate-400">M2 Integration</span>
+                <span className="text-xs text-slate-400">Module 4 Integration</span>
               </div>
 
               {commData?.funding_opportunities && commData.funding_opportunities.length > 0 ? (
@@ -444,7 +840,7 @@ export default function CommercializationPage() {
         </p>
         <p>
           {commData?.governance_disclaimer ||
-            'Commercialization recommendations and readiness scores are empirical advisory guidelines derived from patent, research, funding, and growth metadata. They do not constitute legal patentability opinions, freedom-to-operate guarantees, or financial investment advice.'}
+            'Commercialization recommendations and readiness scores are empirical advisory guidelines derived from patent, research, funding, and growth metadata. They represent potential commercialization pathways for further diligence and do not constitute legal patentability opinions, freedom-to-operate guarantees, or financial investment advice.'}
         </p>
       </div>
     </div>

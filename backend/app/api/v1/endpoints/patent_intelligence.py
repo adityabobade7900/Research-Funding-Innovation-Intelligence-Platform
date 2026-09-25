@@ -2,7 +2,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_user_optional
+from app.core.deps import get_db, get_current_user_optional, get_current_active_user
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.patent_intelligence import (
@@ -13,8 +13,12 @@ from app.schemas.patent_intelligence import (
     PatentStatusResponse,
     CompetitiveLandscapeResponse,
     PatentLandscapeSummary,
+    PatentClusteringResponse,
+    InnovationMapResponse,
+    PatentRecommendationsResponse,
 )
 from app.services.patent_landscape_service import PatentLandscapeService
+from app.services.patent_clustering_service import PatentClusteringService
 from app.services.profile_service import ProfileService
 
 router = APIRouter()
@@ -252,4 +256,94 @@ async def get_competitive_landscape(
         success=True,
         data=comp_data,
         message="Patent competitive landscape indicators computed successfully"
+    )
+
+
+@router.get("/clusters", response_model=ApiResponse[PatentClusteringResponse], status_code=status.HTTP_200_OK)
+async def get_patent_clusters(
+    start_year: Optional[int] = Query(None, description="Start year filter"),
+    end_year: Optional[int] = Query(None, description="End year filter"),
+    domain: Optional[str] = Query(None, description="Filter by technology domain"),
+    classification: Optional[str] = Query(None, description="Filter by patent classification (IPC/CPC)"),
+    assignee: Optional[str] = Query(None, description="Filter by assignee organization"),
+    jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction code"),
+    k: Optional[int] = Query(None, ge=1, le=20, description="Optional target number of clusters"),
+    my_profile_only: bool = Query(False, description="Scope clustering to authenticated user's portfolio only"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Executes real machine learning clustering (TF-IDF vectorization + K-Means centroid optimization)
+    over patent metadata, returning explainable cluster centroids, dominant technical terms, and member proximity.
+    """
+    profile_id = await _resolve_profile_id(my_profile_only, current_user, db)
+    cluster_data = await PatentClusteringService.cluster_patents(
+        db=db,
+        start_year=start_year,
+        end_year=end_year,
+        domain=domain,
+        classification=classification,
+        assignee=assignee,
+        jurisdiction=jurisdiction,
+        k=k,
+        profile_id=profile_id,
+    )
+    return ApiResponse(
+        success=True,
+        data=cluster_data,
+        message="Machine learning patent clustering computed successfully"
+    )
+
+
+@router.get("/innovation-map", response_model=ApiResponse[InnovationMapResponse], status_code=status.HTTP_200_OK)
+async def get_innovation_map(
+    start_year: Optional[int] = Query(None, description="Start year filter"),
+    end_year: Optional[int] = Query(None, description="End year filter"),
+    domain: Optional[str] = Query(None, description="Filter by technology domain"),
+    assignee: Optional[str] = Query(None, description="Filter by assignee organization"),
+    jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction code"),
+    my_profile_only: bool = Query(False, description="Scope innovation map to authenticated user's portfolio only"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Synthesizes multi-dimensional innovation mappings across domains, assignees, classifications, and hotspots.
+    """
+    profile_id = await _resolve_profile_id(my_profile_only, current_user, db)
+    map_data = await PatentLandscapeService.get_innovation_map(
+        db=db,
+        start_year=start_year,
+        end_year=end_year,
+        domain=domain,
+        assignee=assignee,
+        jurisdiction=jurisdiction,
+        profile_id=profile_id,
+    )
+    return ApiResponse(
+        success=True,
+        data=map_data,
+        message="Patent innovation mapping synthesized successfully"
+    )
+
+
+@router.get("/recommendations", response_model=ApiResponse[PatentRecommendationsResponse], status_code=status.HTTP_200_OK)
+async def get_profile_patent_recommendations(
+    limit: int = Query(10, ge=1, le=50, description="Max patent recommendations to return"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Module 3 Upstream Integration:
+    Delivers explainable patent recommendations tailored to the authenticated researcher's profile
+    domains, research interests, and publication track record.
+    """
+    recs = await PatentLandscapeService.get_profile_recommendations(
+        user_id=current_user.id,
+        limit=limit,
+        db=db
+    )
+    return ApiResponse(
+        success=True,
+        data=recs,
+        message="Profile-based patent recommendations generated successfully"
     )
