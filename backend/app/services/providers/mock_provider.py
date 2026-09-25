@@ -16,7 +16,7 @@ SAMPLE_PUBLICATIONS: List[Dict[str, Any]] = [
     {
         "title": "Quantum Error Correction on Neutral Atom Arrays",
         "authors": "Dr. Vance Adams, Dr. Sarah Connor",
-        "abstract": "Demonstration of fault-tolerant surface codes on a programmable Rydberg atom architecture.",
+        "abstract": "Fault-tolerant quantum computing requires quantum error correction codes with physical error rates below threshold, yet scaling 2D Rydberg atom arrays remains hindered by laser phase noise and two-qubit gate cross-talk. In this work, we propose and demonstrate a dual-species neutral atom architecture implementing a distance-3 surface code with real-time syndrome extraction. Our methodology employs optical tweezers to dynamically rearrange rubidium-87 and cesium-133 atoms, minimizing optical crosstalk while executing transversal Clifford gates. We demonstrate an error detection threshold reduction of 34% with an average two-qubit gate fidelity of 99.4%, outperforming baseline planar geometries. However, our system is constrained by atom loss rates during cyclic re-cooling and non-destructive readout latency exceeding 150 microseconds. Future research will explore 3D optical lattices, continuous atom replenishment techniques, and fault-tolerant logical qubit shuttling across interconnected atomic modules.",
         "publication_date": datetime(2024, 2, 10, tzinfo=timezone.utc),
         "year": 2024,
         "venue": "Nature Quantum Information",
@@ -31,7 +31,7 @@ SAMPLE_PUBLICATIONS: List[Dict[str, Any]] = [
     {
         "title": "Transformer Attention for High-Throughput Genomic Variant Discovery",
         "authors": "Dr. Elena Vance, Dr. Liam Chen",
-        "abstract": "Deep attention-based architectures for classifying non-coding regulatory elements in human genomes.",
+        "abstract": "Interpreting non-coding variant effects in complex polygenic diseases remains a fundamental computational challenge due to long-range epistatic interactions across chromatin boundaries. We introduce GenoFormer, a 2.5-billion-parameter hierarchical transformer architecture pre-trained on multi-species vertebrate genomes using masked regulatory element modeling. The methodology leverages sparse linear-attention kernels to process 128-kilobase contiguous sequences alongside single-cell ATAC-seq chromatin accessibility priors. Across three benchmark functional genomics cohorts, GenoFormer improves pathogenic variant classification accuracy by 18.7% over existing convolutional baselines (AUROC 0.942). A principal limitation is the high GPU memory requirement during autoregressive inference and vulnerability to low-coverage sequencing noise in repetitive telomeric regions. Future research should prioritize knowledge distillation for lightweight edge deployment and integrating paired long-read transcriptome profiling to capture isoform-level regulatory dynamics.",
         "publication_date": datetime(2023, 11, 15, tzinfo=timezone.utc),
         "year": 2023,
         "venue": "Genome Biology",
@@ -46,7 +46,7 @@ SAMPLE_PUBLICATIONS: List[Dict[str, Any]] = [
     {
         "title": "Zero-Knowledge Proofs for Post-Quantum Blockchain Consensus",
         "authors": "Dr. Marcus Brody, Dr. Alan Turing",
-        "abstract": "Lattice-based SNARKs achieving succinct verification under sub-millisecond execution times.",
+        "abstract": "Decentralized ledger consensus mechanisms struggle to reconcile high transaction throughput with quantum-resistant privacy guarantees, as conventional elliptic-curve zk-SNARKs are vulnerable to Shor's algorithm. We design and implement LatticeShield, an efficient zero-knowledge proof system based on module learning with errors (M-LWE) tailored for distributed state verification. The proposed framework utilizes structured polynomial rings with sum-check protocols to achieve sub-linear proof sizes without trusted setup assumptions. Experimental evaluations demonstrate a 4.2x reduction in proof generation time and sub-millisecond verification overhead compared to standard lattice-based post-quantum schemes. However, our current prototype exhibits substantial proof size bloat (~48 KB per transaction proof), imposing bandwidth bottlenecks in constrained peer-to-peer topologies. Future research directions will focus on recursive proof composition, hardware-accelerated polynomial multiplication, and cross-chain zero-knowledge bridges.",
         "publication_date": datetime(2023, 8, 20, tzinfo=timezone.utc),
         "year": 2023,
         "venue": "IEEE Transactions on Information Forensics and Security",

@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db, get_current_active_user
+from app.core.deps import get_db, get_current_active_user, get_current_user_optional
 from app.models.user import User
 from app.schemas.funding import (
     FundingOpportunityCreate,
@@ -14,6 +14,10 @@ from app.schemas.funding import (
     FundingIngestResponse,
     EligibilityEvaluationResult,
     FundingRecommendationResponse,
+    SaveFundingRequest,
+    SavedFundingItem,
+    SavedFundingListResponse,
+    SaveFundingToggleResponse,
 )
 from app.schemas.common import ApiResponse
 from app.services.funding_service import FundingService
@@ -21,6 +25,7 @@ from app.services.funding_ingest_service import FundingIngestService
 from app.services.profile_service import ProfileService
 from app.services.eligibility_matcher import EligibilityMatcher
 from app.services.funding_recommendation_service import FundingRecommendationService
+from app.services.saved_funding_service import SavedFundingService
 
 router = APIRouter()
 
@@ -38,6 +43,7 @@ async def list_funding_opportunities(
     deadline_before: Optional[datetime] = Query(None, description="Filter opportunities with deadline before this date"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """Searches and filters funding opportunities with multi-criteria pagination."""
@@ -55,10 +61,22 @@ async def list_funding_opportunities(
         offset=offset,
         db=db
     )
+
+    saved_ids = set()
+    if current_user:
+        saved_ids = await SavedFundingService.get_saved_ids_for_user(user_id=current_user.id, db=db)
+
+    results = []
+    for item in items:
+        opp_read = FundingOpportunityRead.model_validate(item)
+        if current_user:
+            opp_read.is_saved = (item.id in saved_ids)
+        results.append(opp_read)
+
     return ApiResponse(
         success=True,
         data=FundingOpportunityListResponse(
-            items=[FundingOpportunityRead.model_validate(item) for item in items],
+            items=results,
             total=total,
             limit=limit,
             offset=offset
@@ -139,6 +157,92 @@ async def get_funding_recommendations(
     )
 
 
+@router.get("/saved", response_model=ApiResponse[SavedFundingListResponse], status_code=status.HTTP_200_OK)
+async def list_saved_funding_opportunities(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Lists funding opportunities saved to the authenticated researcher's watchlist."""
+    items, total = await SavedFundingService.list_saved_opportunities(
+        user_id=current_user.id,
+        limit=limit,
+        offset=offset,
+        db=db
+    )
+    saved_items = []
+    for it in items:
+        item_schema = SavedFundingItem.model_validate(it)
+        item_schema.opportunity.is_saved = True
+        saved_items.append(item_schema)
+
+    return ApiResponse(
+        success=True,
+        data=SavedFundingListResponse(
+            items=saved_items,
+            total=total,
+            limit=limit,
+            offset=offset
+        ),
+        message=f"Retrieved {len(saved_items)} saved funding opportunit(ies)"
+    )
+
+
+@router.post("/{id}/save", response_model=ApiResponse[SaveFundingToggleResponse], status_code=status.HTTP_200_OK)
+async def save_funding_opportunity(
+    id: int,
+    request: Optional[SaveFundingRequest] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Saves a funding opportunity to the authenticated researcher's watchlist."""
+    notes = request.notes if request else None
+    saved_record, created = await SavedFundingService.save_opportunity(
+        user_id=current_user.id,
+        opp_id=id,
+        notes=notes,
+        db=db
+    )
+    item_schema = SavedFundingItem.model_validate(saved_record)
+    item_schema.opportunity.is_saved = True
+    action_msg = "added to your saved watchlist" if created else "already in your saved watchlist (updated notes)"
+    return ApiResponse(
+        success=True,
+        data=SaveFundingToggleResponse(
+            saved=True,
+            funding_opportunity_id=id,
+            message=f"Opportunity #{id} {action_msg}",
+            item=item_schema
+        ),
+        message=f"Opportunity #{id} {action_msg}"
+    )
+
+
+@router.delete("/{id}/save", response_model=ApiResponse[SaveFundingToggleResponse], status_code=status.HTTP_200_OK)
+async def unsave_funding_opportunity(
+    id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Removes a funding opportunity from the authenticated researcher's watchlist."""
+    await SavedFundingService.unsave_opportunity(
+        user_id=current_user.id,
+        opp_id=id,
+        db=db
+    )
+    return ApiResponse(
+        success=True,
+        data=SaveFundingToggleResponse(
+            saved=False,
+            funding_opportunity_id=id,
+            message=f"Opportunity #{id} removed from your saved watchlist",
+            item=None
+        ),
+        message=f"Opportunity #{id} removed from your saved watchlist"
+    )
+
+
 @router.get("/{id}/eligibility", response_model=ApiResponse[EligibilityEvaluationResult], status_code=status.HTTP_200_OK)
 async def check_funding_eligibility(
     id: int,
@@ -162,13 +266,18 @@ async def check_funding_eligibility(
 @router.get("/{id}", response_model=ApiResponse[FundingOpportunityRead], status_code=status.HTTP_200_OK)
 async def get_funding_opportunity_by_id(
     id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieves details of a specific funding opportunity by ID."""
     opp = await FundingService.get_opportunity(opp_id=id, db=db)
+    opp_read = FundingOpportunityRead.model_validate(opp)
+    if current_user:
+        saved_ids = await SavedFundingService.get_saved_ids_for_user(user_id=current_user.id, db=db)
+        opp_read.is_saved = (opp.id in saved_ids)
     return ApiResponse(
         success=True,
-        data=FundingOpportunityRead.model_validate(opp),
+        data=opp_read,
         message="Funding opportunity details retrieved successfully"
     )
 

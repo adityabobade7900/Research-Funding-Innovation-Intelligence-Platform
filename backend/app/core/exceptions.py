@@ -48,3 +48,23 @@ class PermissionDeniedException(CustomAPIException):
             message=message,
             details=details
         )
+
+
+class InsufficientContentException(CustomAPIException):
+    def __init__(self, message: str = "Publication content is insufficient for analysis", details: Optional[Any] = None):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="INSUFFICIENT_CONTENT",
+            message=message,
+            details=details
+        )
+
+
+class ProviderServiceException(CustomAPIException):
+    def __init__(self, message: str = "Upstream AI/Analysis provider failed", details: Optional[Any] = None):
+        super().__init__(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="PROVIDER_ERROR",
+            message=message,
+            details=details
+        )

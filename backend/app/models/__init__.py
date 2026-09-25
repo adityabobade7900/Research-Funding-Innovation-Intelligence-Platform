@@ -18,7 +18,8 @@ from app.models.patent import Patent, profile_patents
 from app.models.funding import (
     FundingOpportunity,
     FundingKeyword,
-    funding_opportunity_domains
+    funding_opportunity_domains,
+    SavedFunding
 )
 
 __all__ = [
@@ -40,5 +41,6 @@ __all__ = [
     "profile_patents",
     "FundingOpportunity",
     "FundingKeyword",
-    "funding_opportunity_domains"
+    "funding_opportunity_domains",
+    "SavedFunding"
 ]

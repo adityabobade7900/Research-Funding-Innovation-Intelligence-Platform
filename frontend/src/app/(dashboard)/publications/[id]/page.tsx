@@ -17,9 +17,15 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  BrainCircuit,
+  Target,
+  Cpu,
+  Award,
+  AlertTriangle,
+  Compass,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Publication, PublicationUpdate } from "@/types/publication";
+import { Publication, PublicationUpdate, PaperAnalysisResponse } from "@/types/publication";
 import { ResearchDomain } from "@/types/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +40,11 @@ export default function PublicationDetailPage() {
   const [domains, setDomains] = useState<ResearchDomain[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // AI Paper Analysis State
+  const [analysis, setAnalysis] = useState<PaperAnalysisResponse | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
 
   // Edit Modal State
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -75,6 +86,16 @@ export default function PublicationDetailPage() {
       if (domainsRes.data?.success) {
         setDomains(domainsRes.data.data);
       }
+
+      // Quietly load existing analysis if available
+      try {
+        const analysisRes = await api.get(`/publications/${pubId}/analyze`);
+        if (analysisRes.data?.success) {
+          setAnalysis(analysisRes.data.data);
+        }
+      } catch {
+        // Not analyzed yet; user can trigger manually
+      }
     } catch (err: any) {
       setErrorMessage(err.response?.data?.error?.message || "Failed to load publication.");
     } finally {
@@ -85,6 +106,25 @@ export default function PublicationDetailPage() {
   useEffect(() => {
     loadPublication();
   }, [pubId]);
+
+  const handleAnalyze = async () => {
+    if (!pubId) return;
+    setIsAnalyzing(true);
+    setAnalysisError("");
+    try {
+      const res = await api.post(`/publications/${pubId}/analyze`);
+      if (res.data?.success) {
+        setAnalysis(res.data.data);
+      }
+    } catch (err: any) {
+      setAnalysisError(
+        err.response?.data?.error?.message ||
+        "Failed to generate AI paper analysis. Please ensure publication has an adequate abstract."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,6 +347,187 @@ export default function PublicationDetailPage() {
                   #{k.keyword}
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* AI Paper Analysis Section */}
+      <div className="glass-panel p-8 rounded-2xl border border-slate-800 space-y-6">
+        {/* Section Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+          <div className="space-y-1">
+            <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
+              <BrainCircuit className="w-6 h-6 text-blue-400" />
+              AI Paper Analysis
+            </h2>
+            <p className="text-xs text-slate-400">
+              Rigorous scientific deconstruction across five key analytical facets grounded in verified publication content.
+            </p>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={handleAnalyze}
+            isLoading={isAnalyzing}
+            disabled={isAnalyzing}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20"
+          >
+            <Sparkles className="w-4 h-4" />
+            {analysis ? "Re-analyze Paper" : "Analyze Paper"}
+          </Button>
+        </div>
+
+        {/* Error Feedback */}
+        {analysisError && (
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-rose-300">Analysis Incomplete</p>
+              <p className="mt-0.5 text-slate-300">{analysisError}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {isAnalyzing && (
+          <div className="py-12 px-6 rounded-xl bg-slate-900/60 border border-blue-500/20 text-center space-y-3 animate-pulse">
+            <Sparkles className="w-8 h-8 text-blue-400 animate-spin mx-auto" />
+            <h3 className="text-sm font-bold text-white">Synthesizing Paper Facets...</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Extracting Problem Statement, Methodology, Findings, Limitations, and Future Horizons from scientific text.
+            </p>
+          </div>
+        )}
+
+        {/* Empty State (Not yet analyzed) */}
+        {!analysis && !isAnalyzing && !analysisError && (
+          <div className="py-10 px-6 rounded-xl bg-slate-900/40 border border-dashed border-slate-800 text-center space-y-3">
+            <BrainCircuit className="w-10 h-10 text-slate-600 mx-auto" />
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-slate-300">Ready for Scientific Deconstruction</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Click &quot;Analyze Paper&quot; above to run automated semantic evaluation and extract the 5 core research facets.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Populated Analysis Results */}
+        {analysis && !isAnalyzing && (
+          <div className="space-y-6">
+            {/* Metadata Badges & Confidence */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {Math.round(analysis.confidence_score * 100)}% Confidence
+                </span>
+                <Badge variant="secondary" className="capitalize text-slate-300 border-slate-700">
+                  Source: {analysis.analysis_source.replace(/_/g, " ")}
+                </Badge>
+                <Badge variant="secondary" className="text-slate-300">
+                  Engine: {analysis.provider}
+                </Badge>
+              </div>
+
+              <span className="text-[11px] text-slate-400">
+                Analyzed on {new Date(analysis.analyzed_at).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+
+            {/* Key Insights Pills (if present) */}
+            {analysis.key_insights && analysis.key_insights.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  Key Scientific Takeaways
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {analysis.key_insights.map((insight, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs text-slate-300 flex items-start gap-2"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <span>{insight}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* The 5 Mentor Facets Grid */}
+            <div className="space-y-4 pt-2">
+              {/* 1. Problem Statement */}
+              <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-sky-500/30 transition-colors space-y-2.5">
+                <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="p-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                    <Target className="w-4 h-4" />
+                  </div>
+                  <span>1. Problem Statement & Motivation</span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-200 pl-8">
+                  {analysis.problem_statement}
+                </p>
+              </div>
+
+              {/* 2. Methodology */}
+              <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-purple-500/30 transition-colors space-y-2.5">
+                <div className="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="p-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <Cpu className="w-4 h-4" />
+                  </div>
+                  <span>2. Methodology & Experimental Framework</span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-200 pl-8">
+                  {analysis.methodology}
+                </p>
+              </div>
+
+              {/* 3. Findings / Contributions */}
+              <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-emerald-500/30 transition-colors space-y-2.5">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <span>3. Findings & Contributions</span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-200 pl-8">
+                  {analysis.findings_contributions}
+                </p>
+              </div>
+
+              {/* 4. Limitations */}
+              <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-amber-500/30 transition-colors space-y-2.5">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <span>4. Limitations & Scope Constraints</span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-200 pl-8">
+                  {analysis.limitations}
+                </p>
+              </div>
+
+              {/* 5. Future Research Directions */}
+              <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-blue-500/30 transition-colors space-y-2.5">
+                <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <span>5. Future Research Directions</span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-200 pl-8">
+                  {analysis.future_research_directions}
+                </p>
+              </div>
             </div>
           </div>
         )}

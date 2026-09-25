@@ -8,6 +8,7 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.models.profile import Profile
     from app.models.refresh_token import RefreshToken
+    from app.models.funding import SavedFunding
 
 
 class UserRole(str, enum.Enum):
@@ -54,6 +55,12 @@ class User(Base):
     )
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
         "RefreshToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    saved_fundings: Mapped[List["SavedFunding"]] = relationship(
+        "SavedFunding",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin"

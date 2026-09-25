@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field, AliasChoices
 from app.schemas.research_profile import ResearchDomainRead
 
 
@@ -70,6 +70,47 @@ class FundingOpportunityRead(FundingOpportunityBase):
     created_by_user_id: Optional[int] = None
     domains: List[ResearchDomainRead] = []
     keywords: List[FundingKeywordRead] = []
+    is_saved: Optional[bool] = None
+
+    @computed_field
+    @property
+    def days_remaining(self) -> Optional[int]:
+        if not self.application_deadline:
+            return None
+        now = datetime.now(timezone.utc)
+        dl = self.application_deadline
+        if dl.tzinfo is None:
+            dl = dl.replace(tzinfo=timezone.utc)
+        return (dl - now).days
+
+    @computed_field
+    @property
+    def is_expired(self) -> bool:
+        if not self.application_deadline:
+            return False
+        now = datetime.now(timezone.utc)
+        dl = self.application_deadline
+        if dl.tzinfo is None:
+            dl = dl.replace(tzinfo=timezone.utc)
+        return dl < now
+
+    @computed_field
+    @property
+    def deadline_urgency(self) -> str:
+        if not self.application_deadline:
+            return "ROLLING"
+        now = datetime.now(timezone.utc)
+        dl = self.application_deadline
+        if dl.tzinfo is None:
+            dl = dl.replace(tzinfo=timezone.utc)
+        if dl < now:
+            return "EXPIRED"
+        days = (dl - now).days
+        if days <= 7:
+            return "CRITICAL"
+        elif days <= 30:
+            return "URGENT"
+        return "NORMAL"
 
     model_config = {"from_attributes": True}
 
@@ -79,6 +120,36 @@ class FundingOpportunityListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# --- Saved Funding / Watchlist Schemas ---
+class SaveFundingRequest(BaseModel):
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+class SavedFundingItem(BaseModel):
+    id: int
+    user_id: int
+    funding_opportunity_id: int
+    notes: Optional[str] = None
+    created_at: datetime
+    opportunity: FundingOpportunityRead = Field(validation_alias=AliasChoices("funding_opportunity", "opportunity"))
+
+    model_config = {"from_attributes": True}
+
+
+class SavedFundingListResponse(BaseModel):
+    items: List[SavedFundingItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class SaveFundingToggleResponse(BaseModel):
+    saved: bool
+    funding_opportunity_id: int
+    message: str
+    item: Optional[SavedFundingItem] = None
 
 
 # --- Controlled Ingestion Schemas ---

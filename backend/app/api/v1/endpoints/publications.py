@@ -11,11 +11,16 @@ from app.schemas.publication import (
     PublicationListResponse,
     PublicationIngestRequest,
     PublicationIngestResponse,
+    PaperAnalysisRequest,
+    PaperAnalysisResponse,
+    PublicationRecommendationsResponse,
 )
 from app.schemas.common import ApiResponse
 from app.services.publication_service import PublicationService
 from app.services.profile_service import ProfileService
 from app.services.ingest_service import IngestService
+from app.services.paper_analysis_service import PaperAnalysisService
+from app.services.paper_recommendation_service import PaperRecommendationService
 
 router = APIRouter()
 
@@ -126,6 +131,31 @@ async def get_my_publications(
     )
 
 
+@router.get("/recommendations", response_model=ApiResponse[PublicationRecommendationsResponse], status_code=status.HTTP_200_OK)
+async def get_publication_recommendations(
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of recommendations to return"),
+    min_score: float = Query(15.0, ge=0.0, le=100.0, description="Minimum relevance score threshold"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates personalized, explainable research paper recommendations for the authenticated researcher
+    based on their profile domains, keywords, interests, and technology areas.
+    Excludes publications already associated with the researcher's portfolio.
+    """
+    recs = await PaperRecommendationService.get_recommendations(
+        user_id=current_user.id,
+        limit=limit,
+        min_score=min_score,
+        db=db
+    )
+    return ApiResponse(
+        success=True,
+        data=recs,
+        message=f"Retrieved {len(recs.recommendations)} personalized publication recommendation(s)"
+    )
+
+
 @router.get("/{id}", response_model=ApiResponse[PublicationRead], status_code=status.HTTP_200_OK)
 async def get_publication_by_id(
     id: int,
@@ -180,3 +210,59 @@ async def delete_publication(
         data={"deleted": True, "id": id},
         message="Publication removed successfully"
     )
+
+
+@router.post("/{id}/analyze", response_model=ApiResponse[PaperAnalysisResponse], status_code=status.HTTP_200_OK)
+async def analyze_publication(
+    id: int,
+    body: Optional[PaperAnalysisRequest] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Performs AI-driven scientific research paper analysis on a specific publication.
+    Extracts the five mentor-required facets:
+    1. Problem Statement
+    2. Methodology
+    3. Findings / Contributions
+    4. Limitations
+    5. Future Research Directions
+    """
+    provider_override = body.provider if body else None
+    is_admin = current_user.is_superuser or current_user.role.value == "administrator"
+    analysis = await PaperAnalysisService.analyze_publication(
+        pub_id=id,
+        user_id=current_user.id,
+        is_admin=is_admin,
+        db=db,
+        provider_override=provider_override
+    )
+    return ApiResponse(
+        success=True,
+        data=analysis,
+        message="Research paper analysis completed successfully"
+    )
+
+
+@router.get("/{id}/analyze", response_model=ApiResponse[PaperAnalysisResponse], status_code=status.HTTP_200_OK)
+async def get_publication_analysis(
+    id: int,
+    provider: Optional[str] = Query(None, description="Optional provider override ('gemini', 'openai', 'heuristic')"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieves AI-driven scientific analysis for a specific publication."""
+    is_admin = current_user.is_superuser or current_user.role.value == "administrator"
+    analysis = await PaperAnalysisService.analyze_publication(
+        pub_id=id,
+        user_id=current_user.id,
+        is_admin=is_admin,
+        db=db,
+        provider_override=provider
+    )
+    return ApiResponse(
+        success=True,
+        data=analysis,
+        message="Research paper analysis retrieved successfully"
+    )
+

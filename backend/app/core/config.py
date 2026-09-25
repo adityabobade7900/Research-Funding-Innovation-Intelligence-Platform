@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     PROVIDER_TIMEOUT_SECONDS: float = 8.0
     PROVIDER_MAX_RETRIES: int = 2
 
+    # AI Paper Analysis Providers
+    GEMINI_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:

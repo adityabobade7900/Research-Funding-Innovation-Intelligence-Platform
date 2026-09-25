@@ -115,3 +115,22 @@ class ResearchHotspotsResponse(BaseModel):
     total_hotspots: int
     evaluation_timestamp: datetime
     hotspots: List[ResearchHotspotItem]
+
+
+# --- Research Gap Discovery ---
+class ResearchGapItem(BaseModel):
+    gap: str
+    domain: str
+    evidence_count: int
+    supporting_keywords: List[str]
+    supporting_publications: List[int]
+    evidence: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+
+
+class ResearchGapsResponse(BaseModel):
+    total_gaps: int
+    status: str = Field("SUCCESS", description="SUCCESS | INSUFFICIENT_DATA | NO_GAPS_IDENTIFIED")
+    gaps: List[ResearchGapItem]
+    message: str
+

@@ -178,6 +178,8 @@ class EligibilityMatcher:
                 profile.institution or "",
                 profile.department or "",
             ]
+            if hasattr(profile, "country") and profile.country:
+                user_affiliations.append(profile.country)
             for ah in profile.academic_histories:
                 if ah.institution:
                     user_affiliations.append(ah.institution)

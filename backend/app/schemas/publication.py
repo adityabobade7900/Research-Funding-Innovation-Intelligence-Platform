@@ -93,3 +93,48 @@ class PublicationIngestResponse(BaseModel):
     ingested_count: int
     publications: List[PublicationRead]
     message: str
+
+
+# --- Research Paper AI Analysis Schemas ---
+class PaperAnalysisRequest(BaseModel):
+    provider: Optional[str] = Field(None, description="Optional override for AI provider ('gemini', 'openai', 'heuristic')")
+
+
+class PaperAnalysisResponse(BaseModel):
+    publication_id: int
+    title: str
+    doi: Optional[str] = None
+    primary_domain: Optional[str] = None
+    authors: Optional[str] = None
+    problem_statement: str
+    methodology: str
+    findings_contributions: str
+    limitations: str
+    future_research_directions: str
+    confidence_score: float = Field(0.85, ge=0.0, le=1.0)
+    analysis_source: str = Field("title_and_abstract", description="Data source used for analysis (e.g. title_and_abstract, metadata_only)")
+    analyzed_at: datetime
+    provider: str = Field("nlp-heuristic-analyzer", description="AI/Analysis provider engine used")
+    key_insights: List[str] = Field(default_factory=list, description="Extracted key scientific takeaways")
+
+
+# --- Publication Recommendation Schemas ---
+class PublicationRecommendationItem(BaseModel):
+    publication_id: int
+    title: str
+    authors: str
+    venue: Optional[str] = None
+    year: Optional[int] = None
+    doi: Optional[str] = None
+    primary_domain: Optional[str] = None
+    citation_count: int = 0
+    relevance_score: float = Field(..., ge=0.0, le=100.0, description="Match score between 0 and 100")
+    reasons: List[str] = Field(default_factory=list, description="Explanatory drivers for recommendation")
+
+
+class PublicationRecommendationsResponse(BaseModel):
+    total_recommended: int
+    recommendations: List[PublicationRecommendationItem]
+    profile_completeness_warning: Optional[str] = None
+
+

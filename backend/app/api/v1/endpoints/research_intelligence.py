@@ -12,8 +12,10 @@ from app.schemas.research_intelligence import (
     CitationStatisticsResponse,
     EmergingTopicsResponse,
     ResearchHotspotsResponse,
+    ResearchGapsResponse,
 )
 from app.services.research_trend_service import ResearchTrendService
+from app.services.research_gap_service import ResearchGapService
 from app.services.profile_service import ProfileService
 
 router = APIRouter()
@@ -204,3 +206,30 @@ async def get_research_hotspots(
         data=hotspots,
         message=f"Calculated {len(hotspots.hotspots)} research hotspot(s)"
     )
+
+
+@router.get("/gaps", response_model=ApiResponse[ResearchGapsResponse], status_code=status.HTTP_200_OK)
+async def get_research_gaps(
+    domain: Optional[str] = Query(None, description="Optional domain filter"),
+    min_confidence: float = Query(0.6, ge=0.0, le=1.0, description="Minimum confidence threshold"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of gaps to return"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Synthesizes and discovers macro-corpus research gaps across indexed publications.
+    Identifies convergent limitations, bottlenecks, and unaddressed future directions.
+    Returns INSUFFICIENT_DATA status if corpus size is below minimum threshold (2 publications).
+    """
+    gaps_resp = await ResearchGapService.get_research_gaps(
+        domain=domain,
+        min_confidence=min_confidence,
+        limit=limit,
+        db=db
+    )
+    return ApiResponse(
+        success=True,
+        data=gaps_resp,
+        message=gaps_resp.message
+    )
+

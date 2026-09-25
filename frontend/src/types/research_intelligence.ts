@@ -112,3 +112,21 @@ export interface ResearchHotspotsResponse {
   evaluation_timestamp: string;
   hotspots: ResearchHotspotItem[];
 }
+
+export interface ResearchGapItem {
+  gap: string;
+  domain: string;
+  evidence_count: number;
+  supporting_keywords: string[];
+  supporting_publications: number[];
+  evidence: string;
+  confidence: number;
+}
+
+export interface ResearchGapsResponse {
+  total_gaps: number;
+  status: 'SUCCESS' | 'INSUFFICIENT_DATA' | 'NO_GAPS_IDENTIFIED';
+  gaps: ResearchGapItem[];
+  message: string;
+}
+

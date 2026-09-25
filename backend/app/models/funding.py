@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional, TYPE_CHECKING
-from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Table, Column
+from sqlalchemy import String, Text, Integer, Float, DateTime, ForeignKey, Table, Column, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -92,3 +92,45 @@ class FundingOpportunity(Base):
         foreign_keys=[created_by_user_id],
         lazy="selectin"
     )
+    saved_by: Mapped[List["SavedFunding"]] = relationship(
+        "SavedFunding",
+        back_populates="funding_opportunity",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+
+
+class SavedFunding(Base):
+    """
+    Persistent watchlist of funding opportunities bookmarked by researchers.
+    Strictly isolated by user_id to ensure researchers only access their own saved opportunities.
+    """
+    __tablename__ = "saved_funding"
+    __table_args__ = (
+        UniqueConstraint("user_id", "funding_opportunity_id", name="uq_user_saved_funding"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+    funding_opportunity_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("funding_opportunities.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+    notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="saved_fundings", lazy="selectin")
+    funding_opportunity: Mapped["FundingOpportunity"] = relationship("FundingOpportunity", back_populates="saved_by", lazy="selectin")
+

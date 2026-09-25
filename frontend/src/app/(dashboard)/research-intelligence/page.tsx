@@ -23,7 +23,12 @@ import {
   Layers,
   ChevronRight,
   Target,
-  AlertCircle
+  AlertCircle,
+  Compass,
+  CheckCircle2,
+  AlertTriangle,
+  Lightbulb,
+  FileText
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +39,14 @@ import {
   KeywordTrendsResponse,
   CitationStatisticsResponse,
   EmergingTopicsResponse,
-  ResearchHotspotsResponse
+  ResearchHotspotsResponse,
+  ResearchGapItem,
+  ResearchGapsResponse
 } from "@/types/research_intelligence";
+import {
+  PublicationRecommendationItem,
+  PublicationRecommendationsResponse
+} from "@/types/publication";
 import { FundingRecommendationResponse } from "@/types/funding";
 
 export default function ResearchIntelligenceDashboard() {
@@ -49,7 +60,7 @@ export default function ResearchIntelligenceDashboard() {
   // Loading & Error States
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "trends" | "hotspots" | "emerging" | "citations">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "trends" | "hotspots" | "emerging" | "citations" | "gaps" | "recommendations">("overview");
 
   // Data States
   const [pubTrends, setPubTrends] = useState<PublicationTrendsResponse | null>(null);
@@ -59,11 +70,17 @@ export default function ResearchIntelligenceDashboard() {
   const [emergingTopics, setEmergingTopics] = useState<EmergingTopicsResponse | null>(null);
   const [hotspots, setHotspots] = useState<ResearchHotspotsResponse | null>(null);
   const [fundingRecs, setFundingRecs] = useState<FundingRecommendationResponse | null>(null);
+  const [researchGaps, setResearchGaps] = useState<ResearchGapsResponse | null>(null);
+  const [paperRecs, setPaperRecs] = useState<PublicationRecommendationsResponse | null>(null);
+  const [gapsError, setGapsError] = useState<string | null>(null);
+  const [recsError, setRecsError] = useState<string | null>(null);
 
   // Fetch all analytics datasets
   const fetchDashboardData = async () => {
     setIsLoading(true);
     setError(null);
+    setGapsError(null);
+    setRecsError(null);
     try {
       const queryParams: Record<string, any> = {
         my_profile_only: myProfileOnly,
@@ -73,14 +90,16 @@ export default function ResearchIntelligenceDashboard() {
       if (selectedDomain) queryParams.domain = selectedDomain;
       if (keywordQuery) queryParams.keyword = keywordQuery;
 
-      const [pubRes, domRes, kwRes, citRes, emRes, hotRes, recRes] = await Promise.allSettled([
+      const [pubRes, domRes, kwRes, citRes, emRes, hotRes, recRes, gapsRes, paperRecRes] = await Promise.allSettled([
         api.get("/research-intelligence/trends/publications", { params: queryParams }),
         api.get("/research-intelligence/trends/domains", { params: queryParams }),
         api.get("/research-intelligence/trends/keywords", { params: { ...queryParams, limit: 20, min_count: 1 } }),
         api.get("/research-intelligence/trends/citations", { params: queryParams }),
         api.get("/research-intelligence/emerging-topics", { params: { ...queryParams, recent_years: 2, min_count: 1 } }),
         api.get("/research-intelligence/hotspots", { params: { recent_years: 2, my_profile_only: myProfileOnly } }),
-        api.get("/funding/recommendations", { params: { limit: 3, minimum_score: 50 } })
+        api.get("/funding/recommendations", { params: { limit: 3, minimum_score: 50 } }),
+        api.get("/research-intelligence/gaps", { params: selectedDomain ? { domain: selectedDomain } : {} }),
+        api.get("/publications/recommendations", { params: { limit: 8, min_score: 10.0 } }),
       ]);
 
       if (pubRes.status === "fulfilled" && pubRes.value.data.success) {
@@ -103,6 +122,16 @@ export default function ResearchIntelligenceDashboard() {
       }
       if (recRes.status === "fulfilled" && recRes.value.data.success) {
         setFundingRecs(recRes.value.data.data);
+      }
+      if (gapsRes.status === "fulfilled" && gapsRes.value.data.success) {
+        setResearchGaps(gapsRes.value.data.data);
+      } else if (gapsRes.status === "rejected") {
+        setGapsError("Failed to discover research gaps. Please verify connection.");
+      }
+      if (paperRecRes.status === "fulfilled" && paperRecRes.value.data.success) {
+        setPaperRecs(paperRecRes.value.data.data);
+      } else if (paperRecRes.status === "rejected") {
+        setRecsError("Failed to load paper recommendations. Please verify profile authentication.");
       }
     } catch (err: any) {
       console.error("Failed to load research intelligence:", err);
@@ -155,12 +184,12 @@ export default function ResearchIntelligenceDashboard() {
               Research Intelligence & Trend Analytics
             </h1>
             <Badge variant="primary" className="ml-2 bg-blue-500/10 text-blue-400 border-blue-500/30">
-              M2F Statistical Engine
+              Module 3 Engine
             </Badge>
           </div>
           <p className="text-xs text-slate-400 max-w-2xl">
             Data-driven scientific publication trajectories, domain market shares, statistical topic velocity,
-            and deterministic hotspot discovery across your portfolio and the global ecosystem.
+            macro-corpus research gap discovery, and personalized profile-based paper recommendations.
           </p>
         </div>
 
@@ -290,7 +319,7 @@ export default function ResearchIntelligenceDashboard() {
       </div>
 
       {/* Top KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3">
         {/* Total Publications */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 mb-2">
@@ -301,71 +330,100 @@ export default function ResearchIntelligenceDashboard() {
             <div className="text-2xl font-bold text-white">
               {isLoading ? "..." : pubTrends?.total_publications ?? 0}
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              {pubTrends?.year_range?.min_year && pubTrends?.year_range?.max_year
-                ? `${pubTrends.year_range.min_year} – ${pubTrends.year_range.max_year}`
-                : "Indexed papers"}
-            </p>
+            <p className="text-[10px] text-slate-400 mt-1">Indexed Papers</p>
           </div>
         </div>
 
-        {/* Total Citations */}
+        {/* Active Domains */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Total Citations</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Domains</span>
+            <Layers className="w-4 h-4 text-purple-400" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-purple-300">
+              {isLoading ? "..." : domainTrends?.total_domains ?? 0}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Research Fields</p>
+          </div>
+        </div>
+
+        {/* Unique Keywords */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Keywords</span>
+            <Search className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-indigo-300">
+              {isLoading ? "..." : keywordTrends?.total_keywords ?? 0}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Tracked Topics</p>
+          </div>
+        </div>
+
+        {/* Avg Citations */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Avg Citations</span>
             <Award className="w-4 h-4 text-amber-400" />
           </div>
           <div>
             <div className="text-2xl font-bold text-amber-300">
-              {isLoading ? "..." : citationStats?.total_citations ?? 0}
+              {isLoading ? "..." : citationStats?.average_citations ?? 0}
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Avg {citationStats?.average_citations ?? 0} / paper
-            </p>
-          </div>
-        </div>
-
-        {/* Median Citations */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Median Citations</span>
-            <BarChart3 className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-emerald-300">
-              {isLoading ? "..." : citationStats?.median_citations ?? 0}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Max {citationStats?.max_citations ?? 0} citations
-            </p>
-          </div>
-        </div>
-
-        {/* Active Hotspots */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Research Hotspots</span>
-            <Flame className="w-4 h-4 text-rose-400" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-rose-400">
-              {isLoading ? "..." : hotspots?.total_hotspots ?? 0}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">High-activity clusters</p>
+            <p className="text-[10px] text-slate-400 mt-1">Impact per Paper</p>
           </div>
         </div>
 
         {/* Emerging Topics */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
+        <div 
+          onClick={() => setActiveTab("emerging")}
+          className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 cursor-pointer transition-all flex flex-col justify-between"
+        >
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Emerging Topics</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Emerging</span>
             <Zap className="w-4 h-4 text-cyan-400" />
           </div>
           <div>
             <div className="text-2xl font-bold text-cyan-300">
               {isLoading ? "..." : emergingTopics?.total_emerging ?? 0}
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Accelerating velocity</p>
+            <p className="text-[10px] text-slate-400 mt-1">High-Velocity</p>
+          </div>
+        </div>
+
+        {/* Research Gaps (Module 3 Genuine Gap Closure) */}
+        <div 
+          onClick={() => setActiveTab("gaps")}
+          className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-blue-500/40 cursor-pointer transition-all flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Research Gaps</span>
+            <Compass className="w-4 h-4 text-blue-400" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-blue-300">
+              {isLoading ? "..." : researchGaps?.total_gaps ?? 0}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Literature Horizons</p>
+          </div>
+        </div>
+
+        {/* Recommended Papers (Module 3 Genuine Gap Closure) */}
+        <div 
+          onClick={() => setActiveTab("recommendations")}
+          className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-indigo-500/40 cursor-pointer transition-all flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Paper Matches</span>
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-indigo-300">
+              {isLoading ? "..." : paperRecs?.total_recommended ?? 0}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Profile-Tailored</p>
           </div>
         </div>
 
@@ -373,10 +431,10 @@ export default function ResearchIntelligenceDashboard() {
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-400 mb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Funding Matches</span>
-            <Target className="w-4 h-4 text-indigo-400" />
+            <Target className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-indigo-300">
+            <div className="text-2xl font-bold text-emerald-300">
               {isLoading ? "..." : fundingRecs?.total_recommended ?? 0}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Personalized RFPs</p>
@@ -384,41 +442,41 @@ export default function ResearchIntelligenceDashboard() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+      {/* Navigation Tabs (Conforms strictly to Mentor Module 3 Structure) */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab("overview")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
             activeTab === "overview"
               ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          Intelligence Overview
+          Overview
         </button>
         <button
           onClick={() => setActiveTab("trends")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
             activeTab === "trends"
               ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          Publication & Domain Trends
+          Research Trends
         </button>
         <button
           onClick={() => setActiveTab("emerging")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
             activeTab === "emerging"
               ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          Emerging Topics Velocity
+          Emerging Topics
         </button>
         <button
           onClick={() => setActiveTab("hotspots")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
             activeTab === "hotspots"
               ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
               : "text-slate-400 hover:text-slate-200"
@@ -427,18 +485,355 @@ export default function ResearchIntelligenceDashboard() {
           Research Hotspots
         </button>
         <button
+          onClick={() => setActiveTab("gaps")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === "gaps"
+              ? "bg-blue-600/20 text-blue-300 border border-blue-500/40 shadow-sm"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Compass className="w-3.5 h-3.5 text-blue-400" />
+          <span>Research Gap Discovery</span>
+          {researchGaps?.total_gaps ? (
+            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-blue-500/20 text-[10px] text-blue-300 font-bold border border-blue-500/30">
+              {researchGaps.total_gaps}
+            </span>
+          ) : null}
+        </button>
+        <button
+          onClick={() => setActiveTab("recommendations")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === "recommendations"
+              ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Recommended Papers</span>
+          {paperRecs?.total_recommended ? (
+            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-[10px] text-indigo-300 font-bold border border-indigo-500/30">
+              {paperRecs.total_recommended}
+            </span>
+          ) : null}
+        </button>
+        <button
           onClick={() => setActiveTab("citations")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
             activeTab === "citations"
               ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          Citation Impact & Top Papers
+          Citation Impact
         </button>
       </div>
 
-      {/* TAB 1: Intelligence Overview / Combined Visuals */}
+      {/* GLOBAL ERROR STATE */}
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+          <Button size="sm" variant="outline" onClick={fetchDashboardData} className="border-rose-500/30 text-rose-300 hover:bg-rose-500/20">
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: RESEARCH GAP DISCOVERY (DEDICATED FULL VIEW)               */}
+      {/* ============================================================== */}
+      {activeTab === "gaps" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Compass className="w-5 h-5 text-blue-400" />
+                Macro-Corpus Research Gap Discovery
+              </h2>
+              <p className="text-xs text-slate-400 max-w-2xl">
+                Deterministic gap discovery synthesized from publication abstracts, reported limitations,
+                methodological bottlenecks, and future research directions across peer-reviewed literature.
+              </p>
+            </div>
+            {selectedDomain && (
+              <Badge variant="primary" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-xs py-1">
+                Domain Filter: {selectedDomain}
+              </Badge>
+            )}
+          </div>
+
+          {/* Gaps Error State */}
+          {gapsError && (
+            <div data-testid="research-gaps-error" className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400" />
+                <span>{gapsError}</span>
+              </div>
+              <Button size="sm" variant="outline" onClick={fetchDashboardData} className="border-rose-500/30 text-rose-300">
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {/* Insufficient Data State */}
+          {researchGaps?.status === "INSUFFICIENT_DATA" && (
+            <div data-testid="research-gaps-insufficient" className="p-8 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center space-y-3">
+              <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto" />
+              <h3 className="text-base font-bold text-amber-200">
+                Insufficient Literature Corpus for Deterministic Gap Discovery
+              </h3>
+              <p className="text-xs text-amber-300/80 max-w-xl mx-auto leading-relaxed">
+                {researchGaps.message || "Macro-corpus gap discovery requires at least 2 peer-reviewed publications with abstracts and methodology statements in the selected domain. This safeguard ensures that identified research whitespace is backed by verifiable empirical literature rather than speculative synthesis."}
+              </p>
+              <div className="pt-2">
+                <Link href="/publications">
+                  <Button size="sm" className="bg-amber-600 hover:bg-amber-500 text-xs">
+                    Browse All Publications
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {researchGaps?.status === "NO_GAPS_IDENTIFIED" && (
+            <div data-testid="research-gaps-empty" className="p-10 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-2">
+              <Compass className="w-10 h-10 text-slate-500 mx-auto" />
+              <h4 className="text-sm font-semibold text-slate-300">No Unaddressed Research Gaps Found</h4>
+              <p className="text-xs text-slate-500">
+                {researchGaps.message || "The analyzed corpus currently does not exhibit recurring limitation patterns in this scope."}
+              </p>
+            </div>
+          )}
+
+          {/* Populated Gaps List */}
+          {researchGaps?.gaps && researchGaps.gaps.length > 0 && (
+            <div data-testid="research-gaps-list" className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {researchGaps.gaps.map((gap, gIdx) => (
+                <div
+                  key={gIdx}
+                  data-testid={`gap-card-${gIdx}`}
+                  className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4 shadow-lg"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <Badge variant="primary" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/30">
+                          {gap.domain}
+                        </Badge>
+                        <h3 className="text-sm font-bold text-white leading-snug">
+                          {gap.gap}
+                        </h3>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="inline-flex items-center px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+                          {(gap.confidence * 100).toFixed(0)}% Confidence
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Literature Evidence Synthesis Quote */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-1.5">
+                      <div className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Empirical Literature Evidence</span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed italic">
+                        "{gap.evidence}"
+                      </p>
+                    </div>
+
+                    {/* Supporting Keywords */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Supporting Topics:</span>
+                      {gap.supporting_keywords.map((kw, kwIdx) => (
+                        <span
+                          key={kwIdx}
+                          className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700"
+                        >
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Supporting Publications Footer */}
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-800/80">
+                    <span className="text-[11px] text-slate-400">
+                      Evidence Base: <strong className="text-white">{gap.evidence_count}</strong> {gap.evidence_count === 1 ? "paper" : "papers"}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-500">Corpus References:</span>
+                      {gap.supporting_publications.map((pId) => (
+                        <Link key={pId} href={`/publications/${pId}`}>
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono transition-colors">
+                            #{pId}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: RECOMMENDED PAPERS (DEDICATED FULL VIEW)                   */}
+      {/* ============================================================== */}
+      {activeTab === "recommendations" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-400" />
+                Profile-Based Paper Recommendations
+              </h2>
+              <p className="text-xs text-slate-400 max-w-2xl">
+                Personalized, explainable relevance ranking computed deterministically from your research domains,
+                keywords, and technical areas. Your own authored publications are excluded.
+              </p>
+            </div>
+            <div className="text-[11px] text-slate-400 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+              Domains (40%) • Keywords (30%) • Tech Areas (15%) • History (10%) • Citations (5%)
+            </div>
+          </div>
+
+          {/* Incomplete Profile Warning */}
+          {paperRecs?.profile_completeness_warning && (
+            <div data-testid="recommendations-profile-warning" className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span>{paperRecs.profile_completeness_warning}</span>
+              </div>
+              <Link href="/profile">
+                <Button size="sm" variant="outline" className="text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/20">
+                  Update Profile
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {/* Recs Error State */}
+          {recsError && (
+            <div data-testid="recommendations-error" className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400" />
+                <span>{recsError}</span>
+              </div>
+              <Button size="sm" variant="outline" onClick={fetchDashboardData} className="border-rose-500/30 text-rose-300">
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {paperRecs?.recommendations && paperRecs.recommendations.length === 0 && (
+            <div data-testid="recommendations-empty" className="p-10 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3">
+              <Sparkles className="w-10 h-10 text-slate-500 mx-auto" />
+              <h4 className="text-sm font-semibold text-slate-300">No Recommended Papers Found</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                No external publications matched your profile research topics or all matching papers are already authored by you. Update your profile keywords to discover new literature.
+              </p>
+              <div className="pt-2">
+                <Link href="/profile">
+                  <Button size="sm" variant="secondary" className="text-xs">
+                    Update Research Profile
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Populated Recommendations List */}
+          {paperRecs?.recommendations && paperRecs.recommendations.length > 0 && (
+            <div data-testid="recommendations-list" className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {paperRecs.recommendations.map((rec) => (
+                <div
+                  key={rec.publication_id}
+                  data-testid={`rec-card-${rec.publication_id}`}
+                  className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-4 shadow-lg"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {rec.primary_domain && (
+                            <Badge variant="secondary" className="text-[10px] border-slate-700">
+                              {rec.primary_domain}
+                            </Badge>
+                          )}
+                          {rec.year && (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {rec.year}
+                            </span>
+                          )}
+                        </div>
+                        <Link href={`/publications/${rec.publication_id}`}>
+                          <h3 className="text-sm font-bold text-white hover:text-indigo-400 transition-colors line-clamp-2">
+                            {rec.title}
+                          </h3>
+                        </Link>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="inline-flex items-center px-2.5 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-bold text-xs">
+                          {rec.relevance_score.toFixed(1)}% Match
+                        </div>
+                      </div>
+                    </div>
+
+                    {rec.authors && (
+                      <p className="text-[11px] text-slate-400 line-clamp-1">
+                        {rec.authors}
+                      </p>
+                    )}
+
+                    {/* Explainability - Why Recommended */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                      <span className="text-[10px] font-semibold uppercase text-indigo-400 tracking-wider block">
+                        Why this paper was recommended:
+                      </span>
+                      <ul className="space-y-1">
+                        {rec.reasons.map((reason, rIdx) => (
+                          <li key={rIdx} className="flex items-start gap-1.5 text-xs text-slate-300">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                            <span className="leading-snug">{reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Card Action Footer */}
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 text-xs">
+                    {rec.doi ? (
+                      <span className="font-mono text-[10px] text-slate-500 truncate max-w-[160px]">
+                        {rec.doi}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-600">ID #{rec.publication_id}</span>
+                    )}
+                    <Link href={`/publications/${rec.publication_id}`}>
+                      <Button size="sm" variant="outline" className="text-xs border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10">
+                        View Publication & AI Analysis
+                        <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB: RESEARCH TRENDS & DOMAINS                                 */}
+      {/* ============================================================== */}
       {(activeTab === "overview" || activeTab === "trends") && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Chart: Publication Volume by Year */}
@@ -584,162 +979,124 @@ export default function ResearchIntelligenceDashboard() {
         </div>
       )}
 
-      {/* TAB 2 & OVERVIEW: Emerging Topics & Research Hotspots */}
-      {(activeTab === "overview" || activeTab === "emerging" || activeTab === "hotspots") && (
+      {/* ============================================================== */}
+      {/* OVERVIEW PREVIEWS: RESEARCH GAPS & RECOMMENDED PAPERS          */}
+      {/* ============================================================== */}
+      {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Emerging Topics Card */}
+          {/* Research Gaps Preview Card */}
           <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-cyan-400" />
-                  Emerging Topics Velocity
+                  <Compass className="w-4 h-4 text-blue-400" />
+                  Research Gap Discovery
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Statistical velocity model comparing recent window vs historical baseline
+                  Unaddressed research horizons extracted from cross-paper limitations and future directions
                 </p>
               </div>
-              <Badge variant="secondary" className="text-cyan-400 border-cyan-500/30">
-                Top {emergingTopics?.topics?.length ?? 0}
-              </Badge>
+              <button
+                onClick={() => setActiveTab("gaps")}
+                className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
+              >
+                View All Gaps
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
-            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-              {emergingTopics?.topics && emergingTopics.topics.length > 0 ? (
-                emergingTopics.topics.map((topic, idx) => (
+            <div className="space-y-3">
+              {researchGaps?.status === "INSUFFICIENT_DATA" ? (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Insufficient literature corpus</span>
+                  </div>
+                  <p className="text-[11px] text-amber-300/80">
+                    {researchGaps.message || "Minimum 2 publications required in this domain to extract grounded gaps."}
+                  </p>
+                </div>
+              ) : researchGaps?.gaps && researchGaps.gaps.length > 0 ? (
+                researchGaps.gaps.slice(0, 2).map((gap, idx) => (
                   <div
-                    key={topic.topic}
-                    className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-cyan-500/30 transition-all space-y-2"
+                    key={idx}
+                    className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-blue-500/30 transition-all space-y-2"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-bold text-cyan-400 flex items-center justify-center">
-                          #{idx + 1}
-                        </span>
-                        <span className="text-xs font-bold text-white">{topic.topic}</span>
-                      </div>
-
-                      <Badge
-                        variant={
-                          topic.status === "EMERGING"
-                            ? "success"
-                            : topic.status === "ESTABLISHED_GROWING"
-                            ? "primary"
-                            : "secondary"
-                        }
-                        className="text-[10px]"
-                      >
-                        {topic.status}
+                      <Badge variant="primary" className="text-[9px] bg-blue-500/10 text-blue-400 border-blue-500/30">
+                        {gap.domain}
                       </Badge>
+                      <span className="text-[10px] font-bold text-emerald-400">
+                        {(gap.confidence * 100).toFixed(0)}% Confidence
+                      </span>
                     </div>
-
-                    <div className="grid grid-cols-3 gap-2 py-1 bg-slate-900/40 rounded-lg p-2 text-center text-[11px]">
-                      <div>
-                        <span className="text-slate-400 block text-[9px] uppercase">Recent (2Y)</span>
-                        <span className="font-bold text-cyan-300">{topic.recent_count}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block text-[9px] uppercase">Historical</span>
-                        <span className="font-bold text-slate-300">{topic.historical_count}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block text-[9px] uppercase">Velocity Score</span>
-                        <span className="font-bold text-emerald-400">{topic.velocity_score} / 10</span>
-                      </div>
-                    </div>
-
-                    {topic.reasons && topic.reasons.length > 0 && (
-                      <p className="text-[10px] text-slate-400 italic">
-                        • {topic.reasons[0]}
-                      </p>
-                    )}
+                    <h4 className="text-xs font-bold text-white line-clamp-1">{gap.gap}</h4>
+                    <p className="text-[11px] text-slate-400 line-clamp-2 italic">"{gap.evidence}"</p>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12 text-slate-500 text-xs">
-                  No emerging topics detected with current threshold.
+                <div className="text-center py-6 text-slate-500 text-xs">
+                  No active research gaps identified in this scope.
                 </div>
               )}
             </div>
           </div>
 
-          {/* Research Hotspots Card */}
+          {/* Recommended Papers Preview Card */}
           <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-rose-400" />
-                  Research Hotspots
+                  <Sparkles className="w-4 h-4 text-indigo-400" />
+                  Recommended Papers
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Composite intensity combining publication volume, growth rate, and citation impact
+                  Explainable paper recommendations matching your researcher profile
                 </p>
               </div>
-              <Badge variant="secondary" className="text-rose-400 border-rose-500/30">
-                {hotspots?.hotspots?.length ?? 0} Clusters
-              </Badge>
+              <button
+                onClick={() => setActiveTab("recommendations")}
+                className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+              >
+                View All Matches
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
-            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-              {hotspots?.hotspots && hotspots.hotspots.length > 0 ? (
-                hotspots.hotspots.map((h, idx) => (
+            <div className="space-y-3">
+              {paperRecs?.recommendations && paperRecs.recommendations.length > 0 ? (
+                paperRecs.recommendations.slice(0, 2).map((rec) => (
                   <div
-                    key={h.domain_or_topic}
-                    className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-rose-500/30 transition-all space-y-2"
+                    key={rec.publication_id}
+                    className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-indigo-500/30 transition-all space-y-2"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[10px] font-bold text-rose-400 flex items-center justify-center">
-                          #{idx + 1}
-                        </span>
-                        <span className="text-xs font-bold text-white truncate max-w-[200px]">
-                          {h.domain_or_topic}
-                        </span>
-                      </div>
-
-                      <Badge
-                        variant={
-                          h.classification === "CRITICAL_HOTSPOT"
-                            ? "danger"
-                            : h.classification === "HIGH_ACTIVITY"
-                            ? "warning"
-                            : "secondary"
-                        }
-                        className="text-[10px]"
-                      >
-                        {h.classification.replace("_", " ")}
-                      </Badge>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {rec.primary_domain || "Research Paper"} • {rec.year || "Recent"}
+                      </span>
+                      <span className="text-[11px] font-bold text-indigo-300">
+                        {rec.relevance_score.toFixed(1)}% Match
+                      </span>
                     </div>
-
-                    {/* Hotspot Intensity Meter */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-slate-400">Hotspot Intensity Score</span>
-                        <span className="font-bold text-rose-400">{h.hotspot_score} / 100</span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                        <div
-                          style={{ width: `${Math.min(100, Math.max(5, h.hotspot_score))}%` }}
-                          className="h-full bg-gradient-to-r from-rose-500 to-amber-400 rounded-full"
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {h.key_drivers.map((driver, dIdx) => (
-                        <span
-                          key={dIdx}
-                          className="text-[10px] px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800"
-                        >
-                          {driver}
-                        </span>
-                      ))}
-                    </div>
+                    <Link href={`/publications/${rec.publication_id}`}>
+                      <h4 className="text-xs font-bold text-white hover:text-indigo-400 transition-colors line-clamp-1">
+                        {rec.title}
+                      </h4>
+                    </Link>
+                    {rec.reasons && rec.reasons.length > 0 && (
+                      <p className="text-[10px] text-slate-400 italic line-clamp-1">
+                        • {rec.reasons[0]}
+                      </p>
+                    )}
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12 text-slate-500 text-xs">
-                  No active research hotspots identified.
+                <div className="text-center py-6 text-slate-500 text-xs">
+                  {paperRecs?.profile_completeness_warning ? (
+                    <span className="text-amber-400">{paperRecs.profile_completeness_warning}</span>
+                  ) : (
+                    "No paper recommendations found matching your current profile."
+                  )}
                 </div>
               )}
             </div>
@@ -747,7 +1104,178 @@ export default function ResearchIntelligenceDashboard() {
         </div>
       )}
 
-      {/* TAB 3: Keyword Frequency Matrix */}
+      {/* ============================================================== */}
+      {/* TAB: EMERGING TOPICS & RESEARCH HOTSPOTS                       */}
+      {/* ============================================================== */}
+      {(activeTab === "overview" || activeTab === "emerging" || activeTab === "hotspots") && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Emerging Topics Card */}
+          {(activeTab === "overview" || activeTab === "emerging") && (
+            <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-cyan-400" />
+                    Emerging Topics Velocity
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Statistical velocity model comparing recent window vs historical baseline
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-cyan-400 border-cyan-500/30">
+                  Top {emergingTopics?.topics?.length ?? 0}
+                </Badge>
+              </div>
+
+              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                {emergingTopics?.topics && emergingTopics.topics.length > 0 ? (
+                  emergingTopics.topics.map((topic, idx) => (
+                    <div
+                      key={topic.topic}
+                      className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-cyan-500/30 transition-all space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-bold text-cyan-400 flex items-center justify-center">
+                            #{idx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-white">{topic.topic}</span>
+                        </div>
+
+                        <Badge
+                          variant={
+                            topic.status === "EMERGING"
+                              ? "success"
+                              : topic.status === "ESTABLISHED_GROWING"
+                              ? "primary"
+                              : "secondary"
+                          }
+                          className="text-[10px]"
+                        >
+                          {topic.status}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 py-1 bg-slate-900/40 rounded-lg p-2 text-center text-[11px]">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase">Recent (2Y)</span>
+                          <span className="font-bold text-cyan-300">{topic.recent_count}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase">Historical</span>
+                          <span className="font-bold text-slate-300">{topic.historical_count}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase">Velocity Score</span>
+                          <span className="font-bold text-emerald-400">{topic.velocity_score} / 10</span>
+                        </div>
+                      </div>
+
+                      {topic.reasons && topic.reasons.length > 0 && (
+                        <p className="text-[10px] text-slate-400 italic">
+                          • {topic.reasons[0]}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    No emerging topics detected with current threshold.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Research Hotspots Card */}
+          {(activeTab === "overview" || activeTab === "hotspots") && (
+            <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-rose-400" />
+                    Research Hotspots
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Composite intensity combining publication volume, growth rate, and citation impact
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-rose-400 border-rose-500/30">
+                  {hotspots?.hotspots?.length ?? 0} Clusters
+                </Badge>
+              </div>
+
+              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                {hotspots?.hotspots && hotspots.hotspots.length > 0 ? (
+                  hotspots.hotspots.map((h, idx) => (
+                    <div
+                      key={h.domain_or_topic}
+                      className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-rose-500/30 transition-all space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[10px] font-bold text-rose-400 flex items-center justify-center">
+                            #{idx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-white truncate max-w-[200px]">
+                            {h.domain_or_topic}
+                          </span>
+                        </div>
+
+                        <Badge
+                          variant={
+                            h.classification === "CRITICAL_HOTSPOT"
+                              ? "danger"
+                              : h.classification === "HIGH_ACTIVITY"
+                              ? "warning"
+                              : "secondary"
+                          }
+                          className="text-[10px]"
+                        >
+                          {h.classification.replace("_", " ")}
+                        </Badge>
+                      </div>
+
+                      {/* Hotspot Intensity Meter */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-400">Hotspot Intensity Score</span>
+                          <span className="font-bold text-rose-400">{h.hotspot_score} / 100</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            style={{ width: `${Math.min(100, Math.max(5, h.hotspot_score))}%` }}
+                            className="h-full bg-gradient-to-r from-rose-500 to-amber-400 rounded-full"
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {h.key_drivers.map((driver, dIdx) => (
+                          <span
+                            key={dIdx}
+                            className="text-[10px] px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800"
+                          >
+                            {driver}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    No active research hotspots identified.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* KEYWORD FREQUENCY TRAJECTORIES                                 */}
+      {/* ============================================================== */}
       {(activeTab === "overview" || activeTab === "trends") && (
         <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-4">
           <div className="flex items-center justify-between">
@@ -797,7 +1325,9 @@ export default function ResearchIntelligenceDashboard() {
         </div>
       )}
 
-      {/* TAB 4: Citation Analytics & High-Impact Publications */}
+      {/* ============================================================== */}
+      {/* CITATION ANALYTICS & HIGH IMPACT PAPERS                        */}
+      {/* ============================================================== */}
       {(activeTab === "overview" || activeTab === "citations") && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Yearly Citation Trend Chart */}
@@ -912,12 +1442,14 @@ export default function ResearchIntelligenceDashboard() {
         </div>
       )}
 
-      {/* SECTION: Funding Opportunity Recommendations Radar (M2E Integration) */}
+      {/* ============================================================== */}
+      {/* SECTION: FUNDING OPPORTUNITY RECOMMENDATIONS RADAR              */}
+      {/* ============================================================== */}
       <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-950/30 via-slate-900 to-indigo-950/30 border border-blue-900/40 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Target className="w-4 h-4 text-blue-400" />
+              <Target className="w-4 h-4 text-emerald-400" />
               Highest-Ranked Funding Matches
             </h3>
             <p className="text-xs text-slate-400">

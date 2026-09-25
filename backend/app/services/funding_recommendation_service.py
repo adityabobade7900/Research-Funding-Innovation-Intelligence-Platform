@@ -13,6 +13,7 @@ from app.schemas.funding import (
 )
 from app.services.profile_service import ProfileService
 from app.services.eligibility_matcher import EligibilityMatcher
+from app.services.saved_funding_service import SavedFundingService
 
 
 class FundingRecommendationService:
@@ -72,7 +73,10 @@ class FundingRecommendationService:
         result = await db.execute(stmt)
         candidates = list(result.scalars().all())
 
-        # 3. Evaluate each candidate deterministically
+        # 3. Fetch saved watchlist IDs to mark is_saved
+        saved_ids = await SavedFundingService.get_saved_ids_for_user(user_id=user_id, db=db)
+
+        # 4. Evaluate each candidate deterministically
         recommendations: List[FundingRecommendationItem] = []
 
         profile_domains_set = {d.name.strip().lower() for d in profile.domains if d.name}
@@ -86,6 +90,9 @@ class FundingRecommendationService:
         for ta in profile.technology_areas:
             if ta.area_name:
                 profile_tokens.add(ta.area_name.strip().lower())
+
+        # Module 3 Research Context: Researcher's authored publication track record
+        researcher_publications = getattr(profile, "publications", []) or []
 
         for opp in candidates:
             # Step A: Gating via EligibilityMatcher
@@ -116,7 +123,23 @@ class FundingRecommendationService:
                         matched_kws.append(token.title())
             kw_score = min(15.0, len(matched_kws) * 5.0)
 
-            # Step D: Deadline Suitability (Max 10 pts)
+            # Step D: Module 3 Publication Track Record Alignment (Max 10 pts)
+            matched_pubs: List[str] = []
+            pub_score = 0.0
+            if researcher_publications:
+                for pub in researcher_publications:
+                    pub_title = pub.title or ""
+                    pub_title_words = [w.strip().lower() for w in pub_title.split() if len(w.strip()) >= 4]
+                    has_match = any(w in opp_text or w in opp_tokens for w in pub_title_words)
+                    if not has_match and hasattr(pub, "keywords"):
+                        pub_kws = [pk.keyword.strip().lower() for pk in (pub.keywords or []) if pk.keyword]
+                        has_match = any(pk in opp_text or pk in opp_tokens for pk in pub_kws)
+                    if has_match:
+                        matched_pubs.append(pub_title)
+                if matched_pubs:
+                    pub_score = min(10.0, len(matched_pubs) * 5.0)
+
+            # Step E: Deadline Suitability (Max 10 pts)
             deadline_score = 0.0
             if opp.application_deadline:
                 dl = opp.application_deadline
@@ -134,16 +157,16 @@ class FundingRecommendationService:
             else:
                 deadline_score = 8.0  # Rolling / open
 
-            # Step E: Funding Scale (Max 5 pts)
+            # Step F: Funding Scale (Max 5 pts)
             funding_scale_score = 3.0
             if opp.funding_amount and opp.funding_amount >= 100000.0:
                 funding_scale_score = 5.0
 
-            # Step F: Base Eligibility Compatibility (Max 50 pts)
+            # Step G: Base Eligibility Compatibility (Max 50 pts)
             base_elig_score = elig.compatibility_score * 0.5
 
             total_rec_score = round(
-                max(0.0, min(100.0, base_elig_score + domain_score + kw_score + deadline_score + funding_scale_score)),
+                max(0.0, min(100.0, base_elig_score + domain_score + kw_score + pub_score + deadline_score + funding_scale_score)),
                 1
             )
 
@@ -153,6 +176,8 @@ class FundingRecommendationService:
                 reasons.append(f"Direct alignment with research domain(s): {', '.join(matching_domains)}")
             if matched_kws:
                 reasons.append(f"Thematic overlap on keywords: {', '.join(matched_kws[:3])}")
+            if matched_pubs:
+                reasons.append(f"Aligns with your publication track record ({len(matched_pubs)} publication(s): '{matched_pubs[0]}')")
             if opp.funding_amount and opp.funding_amount >= 500000.0:
                 reasons.append(f"High-impact funding opportunity ({opp.currency} {opp.funding_amount:,.0f})")
             if opp.application_deadline:
@@ -165,9 +190,11 @@ class FundingRecommendationService:
                 warnings.insert(0, "Conditional match: some criteria require closer review or profile details")
 
             if total_rec_score >= minimum_score:
+                opp_read = FundingOpportunityRead.model_validate(opp)
+                opp_read.is_saved = (opp.id in saved_ids)
                 recommendations.append(
                     FundingRecommendationItem(
-                        opportunity=FundingOpportunityRead.model_validate(opp),
+                        opportunity=opp_read,
                         recommendation_score=total_rec_score,
                         eligibility_status=elig.eligibility_status,
                         matched_domains=matching_domains,
