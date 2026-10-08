@@ -101,3 +101,54 @@ export interface ExecutiveDossierSummary {
   domain_benchmarks: DomainBenchmarkItem[];
   governance_disclaimer: string;
 }
+
+export type ReportType =
+  | 'FUNDING'
+  | 'PATENT'
+  | 'RESEARCH_TREND'
+  | 'INNOVATION_INTELLIGENCE'
+  | 'COMMERCIALIZATION'
+  | 'EXECUTIVE_DOSSIER';
+
+export interface ReportFilterRequest {
+  report_type: ReportType;
+  start_date?: string;
+  end_date?: string;
+  start_year?: number;
+  end_year?: number;
+  domain?: string;
+  technology?: string;
+  agency?: string;
+  assignee?: string;
+  organization?: string;
+  funding_type?: string;
+  technology_stage?: string;
+  min_amount?: number;
+  max_amount?: number;
+  my_profile_only?: boolean;
+}
+
+export interface ReportFactorItem {
+  factor_name: string;
+  weight_pct: number;
+  score: number;
+  status: string;
+  description: string;
+  signals?: Record<string, any>;
+}
+
+export interface ReportPreviewResponse {
+  report_type: string;
+  title: string;
+  generated_at: string;
+  applied_filters: Record<string, any>;
+  total_records: number;
+  metrics: Record<string, string | number>;
+  summary_text: string;
+  table_headers: string[];
+  table_rows: (string | number)[][];
+  factors?: ReportFactorItem[];
+  recommendations?: string[];
+  data_limitations?: string;
+}
+

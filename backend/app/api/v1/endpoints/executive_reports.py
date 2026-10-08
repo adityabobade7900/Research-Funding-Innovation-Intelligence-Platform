@@ -1,9 +1,9 @@
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, Depends, Query, status, Response
+from fastapi import APIRouter, Depends, Query, status, Response, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.deps import get_db, get_current_user_optional
+from app.core.deps import get_db, get_current_user_optional, get_current_active_user
 from app.models.user import User
 from app.models.profile import Profile
 from app.schemas.common import ApiResponse
@@ -12,7 +12,14 @@ from app.schemas.executive_report import (
     ExecutiveDossierSummary,
     DomainBenchmarkItem,
 )
+from app.schemas.report_export import (
+    ReportType,
+    ReportFilterParams,
+    ReportTypesResponse,
+    ReportPreviewResponse,
+)
 from app.services.executive_report_service import ExecutiveReportService
+from app.services.report_export_service import ReportExportService
 
 router = APIRouter()
 
@@ -30,6 +37,120 @@ async def _resolve_profile_id(
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
+
+# =========================================================================
+# MODULE 11: REPORTS & EXPORT SYSTEM ENDPOINTS
+# =========================================================================
+
+@router.get(
+    "/types",
+    response_model=ApiResponse[ReportTypesResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List Supported Report Types",
+    description="Returns metadata and supported filters for all platform report categories (Funding, Patent, Research Trend, Innovation Intelligence, Commercialization)."
+)
+async def get_report_types():
+    """Returns the official catalog of supported report types and their filter parameters."""
+    catalog = ReportExportService.get_supported_report_types()
+    return ApiResponse(
+        data=catalog,
+        message="Supported report types retrieved successfully"
+    )
+
+
+@router.post(
+    "/preview",
+    response_model=ApiResponse[ReportPreviewResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Preview Filtered Report Data",
+    description="Processes backend filters and returns structured preview metrics, narrative summary, and table records before export."
+)
+async def preview_report(
+    filters: ReportFilterParams = Body(...),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generates real-time report data and summary based on applied filters."""
+    preview_data = await ReportExportService.gather_report_data(
+        filters=filters,
+        user=current_user,
+        db=db,
+    )
+    return ApiResponse(
+        data=preview_data,
+        message=f"Report preview generated successfully for {filters.report_type.value}"
+    )
+
+
+@router.post(
+    "/export/pdf",
+    response_class=Response,
+    status_code=status.HTTP_200_OK,
+    summary="Export Report as Formatted PDF Document",
+    description="Generates a professional, print-ready PDF with cover, executive summary, factor breakdown, formatted tables, and governance notice."
+)
+async def export_report_pdf(
+    filters: ReportFilterParams = Body(...),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generates and downloads a formatted PDF report using ReportLab."""
+    report_data = await ReportExportService.gather_report_data(
+        filters=filters,
+        user=current_user,
+        db=db,
+    )
+    pdf_bytes = ReportExportService.generate_pdf(report_data=report_data)
+
+    safe_title = filters.report_type.value.lower()
+    filename = f"Intelligence_Report_{safe_title}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "application/pdf"
+        }
+    )
+
+
+@router.post(
+    "/export/excel",
+    response_class=Response,
+    status_code=status.HTTP_200_OK,
+    summary="Export Report as Structured Excel (.xlsx) Workbook",
+    description="Generates a multi-sheet, structured Excel workbook using openpyxl with styles, formatted numbers, dates, and dedicated analysis sheets."
+)
+async def export_report_excel(
+    filters: ReportFilterParams = Body(...),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generates and downloads a structured .xlsx Excel workbook using openpyxl."""
+    report_data = await ReportExportService.gather_report_data(
+        filters=filters,
+        user=current_user,
+        db=db,
+    )
+    excel_bytes = ReportExportService.generate_excel(report_data=report_data)
+
+    safe_title = filters.report_type.value.lower()
+    filename = f"Intelligence_Report_{safe_title}.xlsx"
+
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+    )
+
+
+# =========================================================================
+# PRESERVED EXISTING EXECUTIVE DOSSIER ENDPOINTS (BACKWARD COMPATIBLE)
+# =========================================================================
 
 @router.get(
     "/dossier",

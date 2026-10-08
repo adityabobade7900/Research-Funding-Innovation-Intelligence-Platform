@@ -21,6 +21,11 @@ from app.models.funding import (
     funding_opportunity_domains,
     SavedFunding
 )
+from app.models.notification import (
+    Notification,
+    NotificationType,
+    NotificationPriority
+)
 
 __all__ = [
     "User",
@@ -42,5 +47,8 @@ __all__ = [
     "FundingOpportunity",
     "FundingKeyword",
     "funding_opportunity_domains",
-    "SavedFunding"
+    "SavedFunding",
+    "Notification",
+    "NotificationType",
+    "NotificationPriority",
 ]

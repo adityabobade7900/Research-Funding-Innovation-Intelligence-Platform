@@ -4,6 +4,11 @@ import {
   StrategicAssessment,
   RoadmapPhaseItem,
 } from '@/types/executive_report';
+import {
+  SUPPORTED_REPORT_TYPES,
+  validateReportFilters,
+  verifyInnovationFactorWeights,
+} from './reports';
 
 describe('Executive Intelligence Dossier & Reporting Models', () => {
   it('validates comprehensive dossier response synthesis', () => {
@@ -117,4 +122,41 @@ describe('Executive Intelligence Dossier & Reporting Models', () => {
     expect(phase.actions[0].owner_role).toBe('Innovation Manager');
     expect(phase.actions[0].target_timeline).toBe('Month 12');
   });
+
+  it('validates all Module 11 supported report categories and metadata', () => {
+    expect(SUPPORTED_REPORT_TYPES.length).toBe(6);
+    const types = SUPPORTED_REPORT_TYPES.map((r) => r.type);
+    expect(types).toContain('FUNDING');
+    expect(types).toContain('PATENT');
+    expect(types).toContain('RESEARCH_TREND');
+    expect(types).toContain('INNOVATION_INTELLIGENCE');
+    expect(types).toContain('COMMERCIALIZATION');
+    expect(types).toContain('EXECUTIVE_DOSSIER');
+
+    // Filter validation checks
+    expect(validateReportFilters({ start_year: 2025, end_year: 2024 }).isValid).toBe(false);
+    expect(validateReportFilters({ min_amount: -500 }).isValid).toBe(false);
+    expect(validateReportFilters({ min_amount: 100000, max_amount: 50000 }).isValid).toBe(false);
+    expect(validateReportFilters({ start_year: 2020, end_year: 2025, min_amount: 1000 }).isValid).toBe(true);
+
+    // Official 5-Pillar Innovation Weights: 30%, 20%, 15%, 20%, 15% = 100%
+    const factors = [
+      { factor_name: 'Research Novelty', weight_pct: 30.0, score: 85.0, status: 'AVAILABLE', description: 'Pubs' },
+      { factor_name: 'Patent Strength', weight_pct: 20.0, score: 75.0, status: 'AVAILABLE', description: 'Patents' },
+      { factor_name: 'Technology Maturity', weight_pct: 15.0, score: 60.0, status: 'AVAILABLE', description: 'Maturity' },
+      { factor_name: 'Market Potential', weight_pct: 20.0, score: 70.0, status: 'AVAILABLE', description: 'Market' },
+      { factor_name: 'Funding Relevance', weight_pct: 15.0, score: 90.0, status: 'AVAILABLE', description: 'Grants' },
+    ];
+    expect(verifyInnovationFactorWeights(factors)).toBe(true);
+
+    const invalidWeights = [
+      { factor_name: 'Research Novelty', weight_pct: 25.0, score: 85.0, status: 'AVAILABLE', description: 'Pubs' },
+      { factor_name: 'Patent Strength', weight_pct: 20.0, score: 75.0, status: 'AVAILABLE', description: 'Patents' },
+      { factor_name: 'Technology Maturity', weight_pct: 15.0, score: 60.0, status: 'AVAILABLE', description: 'Maturity' },
+      { factor_name: 'Market Potential', weight_pct: 20.0, score: 70.0, status: 'AVAILABLE', description: 'Market' },
+      { factor_name: 'Funding Relevance', weight_pct: 15.0, score: 90.0, status: 'AVAILABLE', description: 'Grants' },
+    ];
+    expect(verifyInnovationFactorWeights(invalidWeights)).toBe(false);
+  });
 });
+

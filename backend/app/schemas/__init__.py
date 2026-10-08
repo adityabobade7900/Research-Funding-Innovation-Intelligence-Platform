@@ -138,6 +138,14 @@ from app.schemas.executive_report import (
     DomainBenchmarkItem,
     ExecutiveDossierSummary,
 )
+from app.schemas.report_export import (
+    ReportType,
+    ReportFilterParams,
+    ReportTypeItem,
+    ReportTypesResponse,
+    ReportFactorItem,
+    ReportPreviewResponse,
+)
 from app.schemas.admin import (
     AdminUserItem,
     AdminUserListResponse,
@@ -154,6 +162,15 @@ from app.schemas.command_center import (
     RoleContextualMetrics,
     CommandCenterOverviewResponse,
     ActivityFeedResponse,
+)
+from app.schemas.notification import (
+    NotificationCreate,
+    NotificationRead,
+    NotificationListResponse,
+    NotificationUnreadResponse,
+    NotificationMarkReadResponse,
+    NotificationMarkAllReadResponse,
+    NotificationScanResult,
 )
 from app.schemas.common import ApiResponse, ErrorResponse, ErrorDetail
 
@@ -274,6 +291,12 @@ __all__ = [
     "ExecutiveDossierResponse",
     "DomainBenchmarkItem",
     "ExecutiveDossierSummary",
+    "ReportType",
+    "ReportFilterParams",
+    "ReportTypeItem",
+    "ReportTypesResponse",
+    "ReportFactorItem",
+    "ReportPreviewResponse",
     "AdminUserItem",
     "AdminUserListResponse",
     "UserRoleUpdateRequest",
@@ -287,6 +310,13 @@ __all__ = [
     "RoleContextualMetrics",
     "CommandCenterOverviewResponse",
     "ActivityFeedResponse",
+    "NotificationCreate",
+    "NotificationRead",
+    "NotificationListResponse",
+    "NotificationUnreadResponse",
+    "NotificationMarkReadResponse",
+    "NotificationMarkAllReadResponse",
+    "NotificationScanResult",
     "ApiResponse",
     "ErrorResponse",
     "ErrorDetail"

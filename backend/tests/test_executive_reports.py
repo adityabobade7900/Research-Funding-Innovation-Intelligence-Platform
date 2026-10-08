@@ -253,3 +253,262 @@ async def test_executive_reports_api_endpoints(client: AsyncClient):
     # 4. JSON Export
     r4 = await client.get("/api/v1/reports/export/json")
     assert r4.status_code == 200
+
+
+# =========================================================================
+# MODULE 11: REPORTS & EXPORT SYSTEM TESTS
+# =========================================================================
+
+@pytest.mark.asyncio
+async def test_get_report_types(client: AsyncClient):
+    """Validates GET /api/v1/reports/types catalog."""
+    resp = await client.get("/api/v1/reports/types")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    type_ids = [t["id"] for t in data["report_types"]]
+    assert "FUNDING" in type_ids
+    assert "PATENT" in type_ids
+    assert "RESEARCH_TREND" in type_ids
+    assert "INNOVATION_INTELLIGENCE" in type_ids
+    assert "COMMERCIALIZATION" in type_ids
+
+
+@pytest.mark.asyncio
+async def test_preview_all_report_types(client: AsyncClient, test_user: dict):
+    """Validates POST /api/v1/reports/preview across all report categories."""
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(test_user["id"]), "email": test_user["email"]})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. FUNDING Report
+    fnd_res = await client.post(
+        "/api/v1/reports/preview",
+        headers=headers,
+        json={"report_type": "FUNDING", "domain": "Quantum Computing"}
+    )
+    assert fnd_res.status_code == 200
+    fnd_data = fnd_res.json()["data"]
+    assert fnd_data["report_type"] == "FUNDING"
+    assert "Total Grant Pool" in fnd_data["metrics"]
+
+    # 2. PATENT Report
+    pat_res = await client.post(
+        "/api/v1/reports/preview",
+        headers=headers,
+        json={"report_type": "PATENT", "domain": "Quantum Computing"}
+    )
+    assert pat_res.status_code == 200
+    pat_data = pat_res.json()["data"]
+    assert pat_data["report_type"] == "PATENT"
+    assert "Total Tracked Patents" in pat_data["metrics"]
+
+    # 3. RESEARCH_TREND Report
+    trend_res = await client.post(
+        "/api/v1/reports/preview",
+        headers=headers,
+        json={"report_type": "RESEARCH_TREND", "domain": "Quantum Computing"}
+    )
+    assert trend_res.status_code == 200
+    trend_data = trend_res.json()["data"]
+    assert trend_data["report_type"] == "RESEARCH_TREND"
+
+    # 4. INNOVATION_INTELLIGENCE Report (Must show 5 factors with weights)
+    innov_res = await client.post(
+        "/api/v1/reports/preview",
+        headers=headers,
+        json={"report_type": "INNOVATION_INTELLIGENCE", "domain": "Quantum Computing"}
+    )
+    assert innov_res.status_code == 200
+    innov_data = innov_res.json()["data"]
+    assert innov_data["report_type"] == "INNOVATION_INTELLIGENCE"
+    assert "factors" in innov_data and innov_data["factors"] is not None
+    assert len(innov_data["factors"]) == 5
+    weights = {f["factor_name"]: f["weight_pct"] for f in innov_data["factors"]}
+    assert weights["Research Novelty"] == 30.0
+    assert weights["Patent Strength"] == 20.0
+    assert weights["Technology Maturity"] == 15.0
+    assert weights["Market Potential"] == 20.0
+    assert weights["Funding Relevance"] == 15.0
+
+    # 5. COMMERCIALIZATION Report (Conservative language)
+    comm_res = await client.post(
+        "/api/v1/reports/preview",
+        headers=headers,
+        json={"report_type": "COMMERCIALIZATION", "domain": "Quantum Computing"}
+    )
+    assert comm_res.status_code == 200
+    comm_data = comm_res.json()["data"]
+    assert comm_data["report_type"] == "COMMERCIALIZATION"
+    assert "Commercial Readiness Score" in comm_data["metrics"]
+    assert "potential" in comm_data["summary_text"].lower()
+    assert "guaranteed" not in comm_data["summary_text"].lower()
+
+
+@pytest.mark.asyncio
+async def test_export_pdf_generation_validity(client: AsyncClient, test_user: dict):
+    """Validates that POST /api/v1/reports/export/pdf generates a valid, well-formed PDF."""
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(test_user["id"]), "email": test_user["email"]})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = await client.post(
+        "/api/v1/reports/export/pdf",
+        headers=headers,
+        json={"report_type": "INNOVATION_INTELLIGENCE", "domain": "Quantum Computing"}
+    )
+    assert resp.status_code == 200
+    assert resp.headers["Content-Type"] == "application/pdf"
+    assert "attachment; filename=" in resp.headers["Content-Disposition"]
+    content = resp.content
+    assert len(content) > 1000
+    # PDF magic signature %PDF-
+    assert content.startswith(b"%PDF-")
+
+
+@pytest.mark.asyncio
+async def test_export_excel_generation_validity(client: AsyncClient, test_user: dict):
+    """Validates that POST /api/v1/reports/export/excel generates a valid openpyxl readable workbook."""
+    import io
+    import openpyxl
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(test_user["id"]), "email": test_user["email"]})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = await client.post(
+        "/api/v1/reports/export/excel",
+        headers=headers,
+        json={"report_type": "INNOVATION_INTELLIGENCE", "domain": "Quantum Computing"}
+    )
+    assert resp.status_code == 200
+    assert "spreadsheetml.sheet" in resp.headers["Content-Type"]
+    content = resp.content
+    assert len(content) > 1000
+    # Standard ZIP / XLSX signature PK
+    assert content.startswith(b"PK")
+
+    # Load with openpyxl to verify workbook validity and structure
+    wb = openpyxl.load_workbook(io.BytesIO(content))
+    assert "Summary & Metrics" in wb.sheetnames
+    assert "Data Records" in wb.sheetnames
+    assert "5-Pillar Score Factors" in wb.sheetnames
+    ws_factors = wb["5-Pillar Score Factors"]
+    assert ws_factors.cell(row=2, column=1).value == "Research Novelty"
+    assert ws_factors.cell(row=2, column=2).value == 30.0
+
+
+@pytest.mark.asyncio
+async def test_export_unauthenticated_rejected(client: AsyncClient):
+    """Validates that export endpoints require authentication."""
+    r_pdf = await client.post("/api/v1/reports/export/pdf", json={"report_type": "FUNDING"})
+    assert r_pdf.status_code == 401
+
+    r_excel = await client.post("/api/v1/reports/export/excel", json={"report_type": "FUNDING"})
+    assert r_excel.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_export_invalid_report_type(client: AsyncClient, test_user: dict):
+    """Validates that an invalid report type is rejected with 422."""
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(test_user["id"]), "email": test_user["email"]})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r_pdf = await client.post(
+        "/api/v1/reports/export/pdf",
+        headers=headers,
+        json={"report_type": "INVALID_TYPE_XYZ"}
+    )
+    assert r_pdf.status_code == 422
+
+    r_prev = await client.post(
+        "/api/v1/reports/preview",
+        headers=headers,
+        json={"report_type": "NON_EXISTENT"}
+    )
+    assert r_prev.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_export_filters_and_empty_results(client: AsyncClient, test_user: dict):
+    """Validates filtering with non-matching domain returns clean empty-state preview and exports without crashing."""
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(test_user["id"]), "email": test_user["email"]})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Filter with non-matching domain
+    res = await client.post(
+        "/api/v1/reports/preview",
+        headers=headers,
+        json={
+            "report_type": "FUNDING",
+            "domain": "NonExistentSpecialtyDomain999",
+            "start_date": "2020-01-01",
+            "end_date": "2021-01-01",
+            "agency": "NASA",
+            "min_amount": 50000000.0
+        }
+    )
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["total_records"] == 0
+    assert len(data["table_rows"]) == 0
+    assert "No matching records found" in data["summary_text"]
+
+    # Export PDF with empty data must still generate a valid PDF
+    pdf_res = await client.post(
+        "/api/v1/reports/export/pdf",
+        headers=headers,
+        json={
+            "report_type": "FUNDING",
+            "domain": "NonExistentSpecialtyDomain999",
+            "min_amount": 50000000.0
+        }
+    )
+    assert pdf_res.status_code == 200
+    assert pdf_res.content.startswith(b"%PDF-")
+
+    # Export Excel with empty data must still generate valid workbook
+    excel_res = await client.post(
+        "/api/v1/reports/export/excel",
+        headers=headers,
+        json={
+            "report_type": "FUNDING",
+            "domain": "NonExistentSpecialtyDomain999",
+            "min_amount": 50000000.0
+        }
+    )
+    assert excel_res.status_code == 200
+    assert excel_res.content.startswith(b"PK")
+
+
+@pytest.mark.asyncio
+async def test_all_five_report_types_export_pdf_and_excel(client: AsyncClient, test_user: dict):
+    """Verifies that all 5 required report types generate valid PDF and Excel files."""
+    import openpyxl
+    import io
+    from app.core.security import create_access_token
+    token = create_access_token({"sub": str(test_user["id"]), "email": test_user["email"]})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    report_types = ["FUNDING", "PATENT", "RESEARCH_TREND", "INNOVATION_INTELLIGENCE", "COMMERCIALIZATION"]
+    for rtype in report_types:
+        pdf_res = await client.post(
+            "/api/v1/reports/export/pdf",
+            headers=headers,
+            json={"report_type": rtype, "domain": "Artificial Intelligence"}
+        )
+        assert pdf_res.status_code == 200, f"Failed PDF export for {rtype}"
+        assert pdf_res.content.startswith(b"%PDF-"), f"Invalid PDF header for {rtype}"
+
+        excel_res = await client.post(
+            "/api/v1/reports/export/excel",
+            headers=headers,
+            json={"report_type": rtype, "domain": "Artificial Intelligence"}
+        )
+        assert excel_res.status_code == 200, f"Failed Excel export for {rtype}"
+        assert excel_res.content.startswith(b"PK"), f"Invalid Excel ZIP header for {rtype}"
+        wb = openpyxl.load_workbook(io.BytesIO(excel_res.content))
+        assert "Summary & Metrics" in wb.sheetnames
+        assert "Data Records" in wb.sheetnames
+
+

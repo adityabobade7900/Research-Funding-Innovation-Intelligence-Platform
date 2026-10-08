@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.models.profile import Profile
     from app.models.refresh_token import RefreshToken
     from app.models.funding import SavedFunding
+    from app.models.notification import Notification
 
 
 class UserRole(str, enum.Enum):
@@ -61,6 +62,12 @@ class User(Base):
     )
     saved_fundings: Mapped[List["SavedFunding"]] = relationship(
         "SavedFunding",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    notifications: Mapped[List["Notification"]] = relationship(
+        "Notification",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin"

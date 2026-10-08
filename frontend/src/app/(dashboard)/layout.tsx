@@ -22,6 +22,7 @@ import { authStorage } from "@/lib/auth";
 import { User } from "@/types/user";
 import { Badge } from "@/components/ui/badge";
 import { formatRoleName } from "@/lib/utils";
+import NotificationCenter from "@/components/NotificationCenter";
 
 export default function DashboardLayout({
   children,
@@ -162,10 +163,7 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-            </button>
+            <NotificationCenter />
             <div className="text-right hidden sm:block">
               <p className="text-xs font-semibold text-white">{user?.full_name}</p>
               <p className="text-[10px] text-slate-400">{user?.email}</p>
